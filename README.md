@@ -29,22 +29,22 @@ pip install polars-schema-index[pyarrow]
 
 ## Key Points
 
-1. **No Monkey-Patching or Subclassing**  
+1. **No Monkey-Patching or Subclassing**
    We do not modify Polars’ built-in classes at runtime or create a custom subclass of `DataFrame`. Everything is implemented through a plugin namespace.
 
-2. **Weak-Reference Based**  
+2. **Weak-Reference Based**
    We store metadata in class-level dictionaries keyed by `id(df)` and hold a `weakref` to the DataFrame. Once the DataFrame is garbage-collected, the metadata is removed too.
 
-3. **Automatic Metadata Copying**  
-   - When you call `df.config_meta.with_columns(...)` (or any other Polars method) **through** the `config_meta` namespace, we intercept the result.  
+3. **Automatic Metadata Copying**
+   - When you call `df.config_meta.with_columns(...)` (or any other Polars method) **through** the `config_meta` namespace, we intercept the result.
    - If it’s a new `DataFrame`, the plugin copies the old one’s metadata forward.
 
-4. **Parquet Integration**  
-   - `df.config_meta.write_parquet("file.parquet")` automatically embeds the plugin metadata into the Arrow schema’s `metadata`.  
+4. **Parquet Integration**
+   - `df.config_meta.write_parquet("file.parquet")` automatically embeds the plugin metadata into the Arrow schema’s `metadata`.
    - `read_parquet_with_meta("file.parquet")` reads the file, extracts that metadata, and reattaches it to the returned `DataFrame`.
 
-5. **Opt-In Only**  
-   - If you call `df.with_columns(...)` *without* `.config_meta.` in front, Polars has no knowledge of this plugin, so metadata will **not** copy forward.  
+5. **Opt-In Only**
+   - If you call `df.with_columns(...)` *without* `.config_meta.` in front, Polars has no knowledge of this plugin, so metadata will **not** copy forward.
    - If you want transformations to preserve metadata, call them via `df.config_meta.<method>(...)`.
 
 ## Basic Usage
@@ -80,37 +80,37 @@ leaks and keeps the plugin usage simple.
 
 ### Common Patterns
 
-- **Setting Metadata**: `df.config_meta.set(key1="val1", key2="val2", ...)`  
-- **Retrieving Metadata**: `df.config_meta.get_metadata()` (returns a `dict`)  
-- **Updating Metadata From a Dict**: `df.config_meta.update({"some_key": "new_val", ...})`  
-- **Merging Metadata From Other DataFrames**:  
+- **Setting Metadata**: `df.config_meta.set(key1="val1", key2="val2", ...)`
+- **Retrieving Metadata**: `df.config_meta.get_metadata()` (returns a `dict`)
+- **Updating Metadata From a Dict**: `df.config_meta.update({"some_key": "new_val", ...})`
+- **Merging Metadata From Other DataFrames**:
   ```python
   df3 = pl.DataFrame(...)
   df3.config_meta.merge(df1, df2)
   ```
   This copies all key–value pairs from `df1` and `df2` into `df3`’s metadata.
 
-- **Transformations**  
+- **Transformations**
   - `df.config_meta.with_columns(...)`
   - `df.config_meta.select(...)`
   - `df.config_meta.filter(...)`
-  - etc.  
+  - etc.
 
 For any method that returns a new `DataFrame`, the plugin copies metadata forward. If the method
 returns something else (like a `Series` or plain Python object), the plugin does nothing.
 
 ### Caveats
 
-- **Must Use `df.config_meta.<method>`**  
-  If you call Polars methods directly on `df`, the plugin can’t intercept the result, so metadata will not be inherited.  
-- **Not Official Polars Feature**  
-  This is purely at the Python layer. Polars doesn’t guarantee stable IDs or official hooks for such metadata.  
-- **Arrow/IPC/CSV**  
+- **Must Use `df.config_meta.<method>`**
+  If you call Polars methods directly on `df`, the plugin can’t intercept the result, so metadata will not be inherited.
+- **Not Official Polars Feature**
+  This is purely at the Python layer. Polars doesn’t guarantee stable IDs or official hooks for such metadata.
+- **Arrow/IPC/CSV**
   For other formats, you’d need to write your own logic to embed or retrieve the metadata. Currently, only Parquet is supported out of the box via `df.config_meta.write_parquet` and `read_parquet_with_meta`.
 
 ## Contributing
 
-1. **Issues & Discussions**: Please open a GitHub issue for bugs, ideas, or questions.  
+1. **Issues & Discussions**: Please open a GitHub issue for bugs, ideas, or questions.
 2. **Pull Requests**: PRs are welcome! This plugin is a community-driven approach to persist DataFrame-level metadata in Polars.
 
 ## License

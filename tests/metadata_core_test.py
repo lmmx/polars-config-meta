@@ -1,7 +1,6 @@
 import io
 
 import polars as pl
-import pytest
 
 from polars_config_meta import read_parquet_with_meta
 
@@ -87,7 +86,7 @@ def test_no_copy_for_non_df_result():
     # We'll check that the original DF's metadata is intact
     md = df.config_meta.get_metadata()
     assert md == {
-        "description": "Test Series return"
+        "description": "Test Series return",
     }, "Original DF metadata changed unexpectedly"
 
 

@@ -54,7 +54,7 @@ class ConfigMetaPlugin:
             ConfigMetaPlugin(other_df)  # ensure it's registered
             other_id = id(other_df)
             self._df_id_to_meta[self._df_id].update(
-                self._df_id_to_meta.get(other_id, {})
+                self._df_id_to_meta.get(other_id, {}),
             )
 
     def get_metadata(self) -> dict:

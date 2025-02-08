@@ -4,6 +4,12 @@ requires = [
   "pdm-backend"
 ]
 
+[dependency-groups]
+dev = [
+  "pdm>=2.22.3",
+  "pdm-bump>=0.9.10"
+]
+
 [project]
 name = "polars-config-meta"
 version = "0.1.2"
@@ -42,15 +48,9 @@ dev = [
   "pytest>=8.3.4"
 ]
 pyarrow = [
-    "pyarrow>=19.0.0",
+  "pyarrow>=19.0.0"
 ]
 
 [project.urls]
 Homepage = "https://github.com/lmmx/polars-config-meta"
 Repository = "https://github.com/lmmx/polars-config-meta.git"
-
-[dependency-groups]
-dev = [
-    "pdm>=2.22.3",
-    "pdm-bump>=0.9.10",
-]
