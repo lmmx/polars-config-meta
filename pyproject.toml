@@ -6,7 +6,7 @@ requires = [
 
 [project]
 name = "polars-config-meta"
-version = "0.1.0"
+version = "0.1.1"
 description = "A Polars plugin for persistent DataFrame-level metadata"
 readme = "README.md"
 authors = [
@@ -52,4 +52,5 @@ Repository = "https://github.com/lmmx/polars-config-meta.git"
 [dependency-groups]
 dev = [
     "pdm>=2.22.3",
+    "pdm-bump>=0.9.10",
 ]
