@@ -9,6 +9,24 @@
 - Providing a “fallthrough” mechanism so you can write `df.config_meta.some_polars_method(...)` and have the resulting new `DataFrame` automatically inherit the old metadata—no manual copying required.
 - Optionally embedding that metadata in **file‐level Parquet metadata** when you call `df.config_meta.write_parquet(...)`, and retrieving it with `read_parquet_with_meta(...)`.
 
+## Installation
+
+```bash
+pip install polars-schema-index[polars]
+```
+
+On older CPUs add the `polars-lts-cpu` extra:
+
+```python
+pip install polars-schema-index[polars-lts-cpu]
+```
+
+For parquet file-level metadata read/writing, add the `pyarrow` extra:
+
+```python
+pip install polars-schema-index[pyarrow]
+```
+
 ## Key Points
 
 1. **No Monkey-Patching or Subclassing**  
@@ -28,14 +46,6 @@
 5. **Opt-In Only**  
    - If you call `df.with_columns(...)` *without* `.config_meta.` in front, Polars has no knowledge of this plugin, so metadata will **not** copy forward.  
    - If you want transformations to preserve metadata, call them via `df.config_meta.<method>(...)`.
-
-## Installation
-
-```bash
-pip install polars-config-meta
-```
-
-(You must also have Polars installed, e.g. `pip install polars`.)
 
 ## Basic Usage
 

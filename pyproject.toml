@@ -48,3 +48,8 @@ pyarrow = [
 [project.urls]
 Homepage = "https://github.com/lmmx/polars-config-meta"
 Repository = "https://github.com/lmmx/polars-config-meta.git"
+
+[dependency-groups]
+dev = [
+    "pdm>=2.22.3",
+]
