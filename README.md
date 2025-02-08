@@ -57,7 +57,7 @@ df = pl.DataFrame({"a": [1, 2, 3]})
 df.config_meta.set(owner="Alice", confidence=0.95)
 
 # Use the plugin to transform; the returned DataFrame inherits metadata:
-df2 = df.config_meta.with_columns(pl.col("a") * 2)
+df2 = df.config_meta.with_columns(doubled=pl.col("a") * 2)
 print(df2.config_meta.get_metadata())
 # -> {'owner': 'Alice', 'confidence': 0.95}
 
