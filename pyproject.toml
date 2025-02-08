@@ -1,0 +1,50 @@
+[build-system]
+build-backend = "pdm.backend"
+requires = [
+  "pdm-backend"
+]
+
+[project]
+name = "polars-config-meta"
+version = "0.1.0"
+description = "A Polars plugin for persistent DataFrame-level metadata"
+readme = "README.md"
+authors = [
+  {name = "Louis Maddox", email = "louismmx@gmail.com"}
+]
+requires-python = ">=3.9"
+dependencies = []
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Natural Language :: English",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13"
+]
+
+[project.optional-dependencies]
+polars = [
+  "polars>=1.21.0"
+]
+polars-lts-cpu = [
+  "polars-lts-cpu>=1.21.0"
+]
+dev = [
+  "pre-commit>=4.1.0",
+  "pytest>=8.3.4"
+]
+pyarrow = [
+    "pyarrow>=19.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/lmmx/polars-config-meta"
+Repository = "https://github.com/lmmx/polars-config-meta.git"
