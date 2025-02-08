@@ -6,7 +6,7 @@ requires = [
 
 [project]
 name = "polars-config-meta"
-version = "0.1.1"
+version = "0.1.2"
 description = "A Polars plugin for persistent DataFrame-level metadata"
 readme = "README.md"
 authors = [
