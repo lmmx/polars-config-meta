@@ -121,7 +121,9 @@ class ConfigMetaPlugin:
 
 
 def read_parquet_with_meta(
-    file_path: str, lazy: bool = False, **kwargs
+    file_path: str,
+    lazy: bool = False,
+    **kwargs,
 ) -> pl.DataFrame:
     """
     Read a Parquet file with PyArrow, extract the 'polars_plugin_meta' we stored,
