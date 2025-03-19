@@ -113,6 +113,10 @@ returns something else (like a `Series` or plain Python object), the plugin does
 1. **Issues & Discussions**: Please open a GitHub issue for bugs, ideas, or questions.
 2. **Pull Requests**: PRs are welcome! This plugin is a community-driven approach to persist DataFrame-level metadata in Polars.
 
+## Polars development
+
+There is ongoing work to support file-level metadata in the Parquet writing, see [this PR](https://github.com/pola-rs/polars/pull/21806) for details.
+
 ## License
 
 This project is licensed under the MIT License.
