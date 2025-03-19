@@ -21,7 +21,7 @@ jobs:
           version: "0.6.8"
       - name: "Set up Python"
         uses: actions/setup-python@v5
-        with: 
+        with:
           python-version-file: "pyproject.toml"
       - name: Install the project
         run: uv sync --extra dev --extra polars --extra pyarrow
