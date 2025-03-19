@@ -7,7 +7,7 @@
 - Registering a custom `config_meta` namespace on each `DataFrame` (via `@register_dataframe_namespace`).
 - Keeping an internal dictionary keyed by the `id(df)`, with automatic **weak-reference cleanup** to avoid memory leaks.
 - Providing a “fallthrough” mechanism so you can write `df.config_meta.some_polars_method(...)` and have the resulting new `DataFrame` automatically inherit the old metadata—no manual copying required.
-- Optionally embedding that metadata in **file‐level Parquet metadata** when you call `df.config_meta.write_parquet(...)`, and retrieving it with `read_parquet_with_meta(...)`.
+- Optionally embedding that metadata in **file‐level Parquet metadata** when you call `df.config_meta.write_parquet(...)`, and retrieving it with `read_parquet_with_meta(...)` (eager) or `scan_parquet_with_meta(...)` (lazy).
 
 ## Installation
 
@@ -42,6 +42,7 @@ pip install polars-schema-index[pyarrow]
 4. **Parquet Integration**
    - `df.config_meta.write_parquet("file.parquet")` automatically embeds the plugin metadata into the Arrow schema’s `metadata`.
    - `read_parquet_with_meta("file.parquet")` reads the file, extracts that metadata, and reattaches it to the returned `DataFrame`.
+   - `scan_parquet_with_meta("file.parquet")` scans the file, extracts that metadata, and reattaches it to the returned `LazyFrame`.
 
 5. **Opt-In Only**
    - If you call `df.with_columns(...)` *without* `.config_meta.` in front, Polars has no knowledge of this plugin, so metadata will **not** copy forward.
@@ -106,7 +107,7 @@ returns something else (like a `Series` or plain Python object), the plugin does
 - **Not Official Polars Feature**
   This is purely at the Python layer. Polars doesn’t guarantee stable IDs or official hooks for such metadata.
 - **Arrow/IPC/CSV**
-  For other formats, you’d need to write your own logic to embed or retrieve the metadata. Currently, only Parquet is supported out of the box via `df.config_meta.write_parquet` and `read_parquet_with_meta`.
+  For other formats, you’d need to write your own logic to embed or retrieve the metadata. Currently, only Parquet is supported out of the box via `df.config_meta.write_parquet` and `read_parquet_with_meta`/`scan_parquet_with_meta`.
 
 ## Contributing
 
