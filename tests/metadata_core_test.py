@@ -2,7 +2,7 @@ import io
 
 import polars as pl
 
-from polars_config_meta import read_parquet_with_meta
+from polars_config_meta import read_parquet_with_meta, scan_parquet_with_meta
 
 
 def test_basic_metadata_storage():
@@ -131,7 +131,7 @@ def test_scan_parquet_with_metadata():
     df.config_meta.write_parquet(path)
 
     # Read back with scan_parquet
-    df_in = read_parquet_with_meta(path, lazy=True)
+    df_in = scan_parquet_with_meta(path)
     md_in = df_in.config_meta.get_metadata()
     assert md_in == meta_data, "Metadata lost or altered in scan"
 

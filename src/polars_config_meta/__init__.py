@@ -120,14 +120,15 @@ class ConfigMetaPlugin:
         pq.write_table(arrow_table, file_path, **kwargs)
 
 
-def read_parquet_with_meta(
-    file_path: str,
-    lazy: bool = False,
-    **kwargs,
-) -> pl.DataFrame:
+def _load_parquet_with_meta(
+    file_path: str, lazy: bool = False, **kwargs
+) -> pl.DataFrame | pl.LazyFrame:
     """
-    Read a Parquet file with PyArrow, extract the 'polars_plugin_meta' we stored,
-    load into a Polars DataFrame, and attach that metadata in our plugin.
+    Loads only the metadata from a parquet file with PyArrow
+    and extracts the 'polars_plugin_meta' we stored.
+    Then loads the data using either the polars
+    `.read_parquet' or `.scan_parquet` methods,
+    and attaches the associated plugin metadata.
     """
     import pyarrow.parquet as pq
 
@@ -149,3 +150,17 @@ def read_parquet_with_meta(
         df.config_meta.update(data_dict)
 
     return df
+
+
+def read_parquet_with_meta(file_path: str, **kwargs) -> pl.DataFrame:
+    """
+    Reads a parquet file along with the metadata.
+    """
+    return _load_parquet_with_meta(file_path, lazy=False, **kwargs)
+
+
+def scan_parquet_with_meta(file_path: str, **kwargs) -> pl.LazyFrame:
+    """
+    Scans a parquet file along with the metadata.
+    """
+    return _load_parquet_with_meta(file_path, lazy=True, **kwargs)
