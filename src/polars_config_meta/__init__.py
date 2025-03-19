@@ -2,10 +2,11 @@ import json
 import weakref
 
 import polars as pl
-from polars.api import register_dataframe_namespace
+from polars.api import register_dataframe_namespace, register_lazyframe_namespace
 
 
 @register_dataframe_namespace("config_meta")
+@register_lazyframe_namespace("config_meta")
 class ConfigMetaPlugin:
     """
     A plugin that:
@@ -20,7 +21,7 @@ class ConfigMetaPlugin:
     _df_id_to_meta = {}
     _df_id_to_ref = {}
 
-    def __init__(self, df: pl.DataFrame):
+    def __init__(self, df: pl.DataFrame | pl.LazyFrame):
         self._df = df
         self._df_id = id(df)
         # If new to us, register a weakref so we can remove it on GC
@@ -46,7 +47,7 @@ class ConfigMetaPlugin:
     def update(self, mapping: dict) -> None:
         self._df_id_to_meta[self._df_id].update(mapping)
 
-    def merge(self, *dfs: pl.DataFrame) -> None:
+    def merge(self, *dfs: pl.DataFrame | pl.LazyFrame) -> None:
         """
         Merge metadata from other dataframes by dict.update.
         """
@@ -83,7 +84,7 @@ class ConfigMetaPlugin:
         def wrapper(*args, **kwargs):
             result = df_attr(*args, **kwargs)
             # If the result is a new DataFrame, copy the metadata
-            if isinstance(result, pl.DataFrame):
+            if isinstance(result, (pl.DataFrame, pl.LazyFrame)):
                 ConfigMetaPlugin(result)  # ensure plugin registration
                 self._df_id_to_meta[id(result)].update(self._df_id_to_meta[self._df_id])
             return result
@@ -106,7 +107,7 @@ class ConfigMetaPlugin:
         metadata_json = json.dumps(metadata_dict).encode("utf-8")
 
         # 2) convert DF to Arrow
-        arrow_table = self._df.to_arrow()
+        arrow_table = self._df.lazy().collect().to_arrow()
 
         # 3) attach custom metadata
         #    existing schema metadata + our custom "polars_plugin_meta"
@@ -119,27 +120,49 @@ class ConfigMetaPlugin:
         pq.write_table(arrow_table, file_path, **kwargs)
 
 
-def read_parquet_with_meta(file_path: str, **kwargs) -> pl.DataFrame:
+def _load_parquet_with_meta(
+    file_path: str,
+    lazy: bool = False,
+    **kwargs,
+) -> pl.DataFrame | pl.LazyFrame:
     """
-    Read a Parquet file with PyArrow, extract the 'polars_plugin_meta' we stored,
-    load into a Polars DataFrame, and attach that metadata in our plugin.
+    Loads only the metadata from a parquet file with PyArrow
+    and extracts the 'polars_plugin_meta' we stored.
+    Then loads the data using either the polars
+    `.read_parquet' or `.scan_parquet` methods,
+    and attaches the associated plugin metadata.
     """
     import pyarrow.parquet as pq
 
-    # 1) read with PyArrow
-    arrow_table = pq.read_table(file_path, **kwargs)
-
-    # 2) check for metadata
-    meta = arrow_table.schema.metadata or {}
+    # 1) read metadata with PyArrow
+    pyarrow_metadata = pq.read_schema(file_path).metadata
+    meta = pyarrow_metadata or {}
     custom_json = meta.get(b"polars_plugin_meta", None)
 
-    # 3) convert to Polars
-    df = pl.from_arrow(arrow_table)
+    # 2) read Parquet with Polars
+    if lazy:
+        df = pl.scan_parquet(file_path, **kwargs)
+    else:
+        df = pl.read_parquet(file_path, **kwargs)
 
-    # 4) if custom metadata found, parse it + store in plugin
+    # 3) if custom metadata found, parse it + store in plugin
     if custom_json is not None:
         data_dict = json.loads(custom_json.decode("utf-8"))
         ConfigMetaPlugin(df)  # ensure plugin registration
         df.config_meta.update(data_dict)
 
     return df
+
+
+def read_parquet_with_meta(file_path: str, **kwargs) -> pl.DataFrame:
+    """
+    Reads a parquet file along with the metadata.
+    """
+    return _load_parquet_with_meta(file_path, lazy=False, **kwargs)
+
+
+def scan_parquet_with_meta(file_path: str, **kwargs) -> pl.LazyFrame:
+    """
+    Scans a parquet file along with the metadata.
+    """
+    return _load_parquet_with_meta(file_path, lazy=True, **kwargs)

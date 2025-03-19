@@ -2,7 +2,7 @@ import io
 
 import polars as pl
 
-from polars_config_meta import read_parquet_with_meta
+from polars_config_meta import read_parquet_with_meta, scan_parquet_with_meta
 
 
 def test_basic_metadata_storage():
@@ -111,3 +111,45 @@ def test_parquet_roundtrip_in_memory():
         "author": "Carol",
         "purpose": "demo",
     }, "Metadata lost or altered in roundtrip"
+
+
+def test_scan_parquet_with_metadata():
+    """
+    Test reading Parquet file with metadata using scan_parquet.
+    """
+    df = pl.DataFrame({"col1": [1, 2], "col2": ["a", "b"]}).config_meta.lazy()
+
+    meta_data = {
+        "author": "David",
+        "purpose": "test",
+    }
+
+    df.config_meta.set(**meta_data)
+
+    # Write to a temporary file
+    path = "test.parquet"
+    df.config_meta.write_parquet(path)
+
+    # Read back with scan_parquet
+    df_in = scan_parquet_with_meta(path)
+    md_in = df_in.config_meta.get_metadata()
+    assert md_in == meta_data, "Metadata lost or altered in scan"
+
+    # Add a new column
+    df_in = df_in.config_meta.with_columns(new_col=pl.col("col1") * 2)
+
+    md_in = df_in.config_meta.get_metadata()
+    assert md_in == meta_data, "Metadata lost or altered in scan"
+
+    # collect to dataframe and check that the same is correct
+    df_in = df_in.config_meta.collect()
+    assert df_in.shape == (2, 3), "Data shape changed on Parquet roundtrip"
+
+    # check that metadata persists after collect
+    md_in = df_in.config_meta.get_metadata()
+    assert md_in == meta_data, "Metadata lost or altered in scan"
+
+    # Clean up
+    import os
+
+    os.remove(path)
