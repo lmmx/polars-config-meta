@@ -121,7 +121,9 @@ class ConfigMetaPlugin:
 
 
 def _load_parquet_with_meta(
-    file_path: str, lazy: bool = False, **kwargs
+    file_path: str,
+    lazy: bool = False,
+    **kwargs,
 ) -> pl.DataFrame | pl.LazyFrame:
     """
     Loads only the metadata from a parquet file with PyArrow
