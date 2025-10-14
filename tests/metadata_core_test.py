@@ -25,21 +25,19 @@ def test_transform_copies_metadata():
     """
     df = pl.DataFrame({"val": [10, 20]})
     df.config_meta.set(source="generated", confidence=0.9)
+    expected_meta = {"source": "generated", "confidence": 0.9}
 
     # Use plugin fallback for with_columns
     df2 = df.config_meta.with_columns(doubled=pl.col("val") * 2)
     assert df2.shape == (2, 2), "Unexpected shape after adding a new column"
 
     md2 = df2.config_meta.get_metadata()
-    assert md2 == {
-        "source": "generated",
-        "confidence": 0.9,
-    }, "Metadata not copied to new DataFrame"
+    assert md2 == expected_meta, "Metadata not copied to new DataFrame"
 
     # Using plain Polars method (without config_meta) won't copy metadata
     df3 = df.with_columns(pl.col("val") * 3)
     md3 = df3.config_meta.get_metadata()
-    assert md3 == {}, "Plain df.with_columns should not copy metadata"
+    assert md3 == expected_meta, "Plain df.with_columns should also copy metadata"
 
 
 def test_merge_metadata():

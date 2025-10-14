@@ -1,8 +1,128 @@
 import json
 import weakref
+from typing import Literal, overload
 
 import polars as pl
 from polars.api import register_dataframe_namespace, register_lazyframe_namespace
+
+
+# Configuration for automatic metadata preservation
+class ConfigMetaOpts:
+    """Global configuration for the config_meta plugin."""
+
+    auto_preserve_metadata = True
+
+    @classmethod
+    def enable_auto_preserve(cls):
+        """Enable automatic metadata preservation for regular DataFrame methods."""
+        cls.auto_preserve_metadata = True
+        _repatch_all()
+
+    @classmethod
+    def disable_auto_preserve(cls):
+        """Disable automatic metadata preservation for regular DataFrame methods."""
+        cls.auto_preserve_metadata = False
+        _unpatch_all()
+
+
+# Store original methods before patching
+_ORIGINAL_METHODS = {}
+_IS_PATCHED = False
+
+# Methods that return DataFrames and should preserve metadata
+METHODS_TO_PATCH = [
+    "with_columns",
+    "select",
+    "filter",
+    "sort",
+    "unique",
+    "drop",
+    "rename",
+    "cast",
+    "with_columns_seq",
+    "drop_nulls",
+    "fill_null",
+    "fill_nan",
+    "head",
+    "tail",
+    "sample",
+    "slice",
+    "limit",
+    "reverse",
+    "rechunk",
+    "clone",
+    "clear",
+]
+
+
+def _copy_metadata_to_result(source_df: pl.DataFrame | pl.LazyFrame, result):
+    """Helper to copy metadata from source to result DataFrame."""
+    if isinstance(result, (pl.DataFrame, pl.LazyFrame)):
+        source_id = id(source_df)
+        if source_id in ConfigMetaPlugin._df_id_to_meta:
+            # Register the result and copy metadata
+            ConfigMetaPlugin(result)
+            ConfigMetaPlugin._df_id_to_meta[id(result)].update(
+                ConfigMetaPlugin._df_id_to_meta[source_id],
+            )
+    return result
+
+
+def _patch_dataframe_method(cls, method_name: str):
+    """Patch a DataFrame/LazyFrame method to preserve metadata."""
+    if not hasattr(cls, method_name):
+        return
+
+    key = (cls, method_name)
+
+    # Store original only if we haven't stored it before
+    if key not in _ORIGINAL_METHODS:
+        original_method = getattr(cls, method_name)
+        _ORIGINAL_METHODS[key] = original_method
+    else:
+        # Use the stored original (in case we're re-patching after unpatch)
+        original_method = _ORIGINAL_METHODS[key]
+
+    def wrapped_method(self, *args, **kwargs):
+        result = original_method(self, *args, **kwargs)
+        return _copy_metadata_to_result(self, result)
+
+    setattr(cls, method_name, wrapped_method)
+
+
+def _ensure_patched():
+    """Ensure all DataFrame and LazyFrame methods are patched."""
+    global _IS_PATCHED
+    if not ConfigMetaOpts.auto_preserve_metadata:
+        return
+
+    if _IS_PATCHED:
+        return
+
+    for cls in [pl.DataFrame, pl.LazyFrame]:
+        for method_name in METHODS_TO_PATCH:
+            _patch_dataframe_method(cls, method_name)
+
+    _IS_PATCHED = True
+
+
+def _unpatch_all():
+    """Restore all original methods."""
+    global _IS_PATCHED
+    if not _IS_PATCHED:
+        return
+
+    for (cls, method_name), original_method in _ORIGINAL_METHODS.items():
+        setattr(cls, method_name, original_method)
+
+    _IS_PATCHED = False
+
+
+def _repatch_all():
+    """Re-patch all methods (used when re-enabling after disable)."""
+    global _IS_PATCHED
+    _IS_PATCHED = False  # Reset flag to allow patching
+    _ensure_patched()
 
 
 @register_dataframe_namespace("config_meta")
@@ -15,6 +135,7 @@ class ConfigMetaPlugin:
           * if 'some_method' is not defined here, we forward it to df.some_method
           * if that call returns a new DataFrame, we copy the old one's metadata
       - special case for write_parquet -> store plugin metadata in the Parquet file
+      - ALSO patches regular DataFrame methods to preserve metadata automatically
     """
 
     # Global dictionaries to store metadata:
@@ -28,6 +149,10 @@ class ConfigMetaPlugin:
         if self._df_id not in self._df_id_to_meta:
             self._df_id_to_meta[self._df_id] = {}
             self._df_id_to_ref[self._df_id] = weakref.ref(df, self._cleanup)
+
+        # Ensure methods are patched when plugin is first used (if enabled)
+        if ConfigMetaOpts.auto_preserve_metadata:
+            _ensure_patched()
 
     @classmethod
     def _cleanup(cls, df_weakref):
@@ -118,6 +243,22 @@ class ConfigMetaPlugin:
 
         # 4) write to Parquet with PyArrow
         pq.write_table(arrow_table, file_path, **kwargs)
+
+
+@overload
+def _load_parquet_with_meta(
+    file_path: str,
+    lazy: Literal[False] = False,
+    **kwargs,
+) -> pl.DataFrame: ...
+
+
+@overload
+def _load_parquet_with_meta(
+    file_path: str,
+    lazy: Literal[True],
+    **kwargs,
+) -> pl.LazyFrame: ...
 
 
 def _load_parquet_with_meta(
