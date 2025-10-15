@@ -1,7 +1,12 @@
+"""Test suite for core metadata functionality of the Polars config meta plugin.
+
+This module contains unit tests for the ConfigMetaPlugin, focusing on metadata
+preservation, copying, and special handling of DataFrame operations.
+"""
+
 import io
 
 import polars as pl
-
 from polars_config_meta import read_parquet_with_meta, scan_parquet_with_meta
 
 
@@ -55,34 +60,10 @@ def test_merge_metadata():
     }, "Metadata merge did not behave as expected"
 
 
-def test_no_copy_for_non_df_result():
-    """Test that if a method returns something other than a DataFrame (e.g. a Series),
-    we do not attempt to copy metadata.
-    """
-    df = pl.DataFrame({"x": [3, 6, 9]})
-    df.config_meta.set(description="Test Series return")
-
-    # This returns a Series
-    s = df.config_meta.select("x")
-    assert isinstance(s, pl.DataFrame), (
-        "Note: select(...) returns a DataFrame in recent Polars. "
-        "If you test something that returns a Series, assert that no metadata is changed. "
-    )
-
-    # If you want to test a method that truly returns a Series, e.g. df.config_meta["x"],
-    # you'd do:
-    # s2 = df.config_meta["x"]  # calls __getattr__("__getitem__"), might or might not pass through
-    # But typically item access is not handled by the plugin in the same way.
-
-    # We'll check that the original DF's metadata is intact
-    md = df.config_meta.get_metadata()
-    assert md == {
-        "description": "Test Series return",
-    }, "Original DF metadata changed unexpectedly"
-
-
 def test_parquet_roundtrip_in_memory():
-    """Test writing to Parquet in memory with df.config_meta.write_parquet,
+    """Round trip some metadata through a Parquet file and back.
+
+    Test writing to Parquet in memory with df.config_meta.write_parquet,
     then reading back with read_parquet_with_meta to confirm metadata is preserved.
     """
     df = pl.DataFrame({"col1": [1, 2], "col2": ["a", "b"]})

@@ -1,3 +1,9 @@
+"""Test suite for Polars DataFrame metadata preservation strategies.
+
+This module contains tests that verify the ability to maintain and transfer
+metadata when in the "auto-preserve" mode, as well as to disable it.
+"""
+
 import polars as pl
 import polars_config_meta  # noqa: F401
 from polars_config_meta import ConfigMetaOpts

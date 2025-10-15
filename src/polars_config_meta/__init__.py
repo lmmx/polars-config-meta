@@ -256,7 +256,9 @@ class ConfigMetaPlugin:
         return wrapper
 
     def _write_parquet_plugin(self, file_path: str, **kwargs):
-        """Our custom writer that:
+        """Implement custom Parquet writing with metadata preservation.
+
+        This method handles the Parquet writing process with the following steps:
         1) extracts plugin metadata
         2) converts DF to Arrow
         3) attaches the metadata to the Arrow schema
@@ -304,11 +306,20 @@ def _load_parquet_with_meta(
     lazy: bool = False,
     **kwargs,
 ) -> pl.DataFrame | pl.LazyFrame:
-    """Loads only the metadata from a parquet file with PyArrow
-    and extracts the 'polars_plugin_meta' we stored.
-    Then loads the data using either the polars
-    `.read_parquet' or `.scan_parquet` methods,
-    and attaches the associated plugin metadata.
+    """Load a Parquet file with associated metadata.
+
+    This method extracts the 'polars_plugin_meta' metadata stored in the Parquet file.
+    It then loads the data using either the Polars `.read_parquet` or `.scan_parquet` methods,
+    and attaches the associated plugin metadata to the resulting DataFrame.
+
+    Args:
+        file_path: Path to the Parquet file to load.  lazy: Whether to load the file lazily (as a LazyFrame) or eagerly.
+        lazy: Whether to return a LazyFrame from the loaded Parquet (if not, a DataFrame).
+        **kwargs: Additional arguments to pass to the Polars reading method.
+
+    Returns:
+        A Polars DataFrame or LazyFrame with restored metadata.
+
     """
     import pyarrow.parquet as pq
 
