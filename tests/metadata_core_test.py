@@ -6,9 +6,7 @@ from polars_config_meta import read_parquet_with_meta, scan_parquet_with_meta
 
 
 def test_basic_metadata_storage():
-    """
-    Test basic set/get metadata on a DataFrame.
-    """
+    """Test basic set/get metadata on a DataFrame."""
     df = pl.DataFrame({"x": [1, 2, 3]})
     df.config_meta.set(owner="Alice", version=1)
     md = df.config_meta.get_metadata()
@@ -20,9 +18,7 @@ def test_basic_metadata_storage():
 
 
 def test_transform_copies_metadata():
-    """
-    Test that using df.config_meta.some_method copies metadata to the new DataFrame.
-    """
+    """Test that using df.config_meta.some_method copies metadata to the new DataFrame."""
     df = pl.DataFrame({"val": [10, 20]})
     df.config_meta.set(source="generated", confidence=0.9)
     expected_meta = {"source": "generated", "confidence": 0.9}
@@ -41,9 +37,7 @@ def test_transform_copies_metadata():
 
 
 def test_merge_metadata():
-    """
-    Test merging metadata from multiple DataFrames.
-    """
+    """Test merging metadata from multiple DataFrames."""
     df1 = pl.DataFrame({"a": [1]})
     df1.config_meta.set(project="Alpha", stage="dev")
     df2 = pl.DataFrame({"b": [2]})
@@ -62,8 +56,7 @@ def test_merge_metadata():
 
 
 def test_no_copy_for_non_df_result():
-    """
-    Test that if a method returns something other than a DataFrame (e.g. a Series),
+    """Test that if a method returns something other than a DataFrame (e.g. a Series),
     we do not attempt to copy metadata.
     """
     df = pl.DataFrame({"x": [3, 6, 9]})
@@ -89,8 +82,7 @@ def test_no_copy_for_non_df_result():
 
 
 def test_parquet_roundtrip_in_memory():
-    """
-    Test writing to Parquet in memory with df.config_meta.write_parquet,
+    """Test writing to Parquet in memory with df.config_meta.write_parquet,
     then reading back with read_parquet_with_meta to confirm metadata is preserved.
     """
     df = pl.DataFrame({"col1": [1, 2], "col2": ["a", "b"]})
@@ -112,9 +104,7 @@ def test_parquet_roundtrip_in_memory():
 
 
 def test_scan_parquet_with_metadata():
-    """
-    Test reading Parquet file with metadata using scan_parquet.
-    """
+    """Test reading Parquet file with metadata using scan_parquet."""
     df = pl.DataFrame({"col1": [1, 2], "col2": ["a", "b"]}).config_meta.lazy()
 
     meta_data = {

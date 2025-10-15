@@ -4,9 +4,7 @@ from polars_config_meta import ConfigMetaOpts
 
 
 def test_preserving_transform_copies_metadata():
-    """
-    Test that using df.config_meta.some_method copies metadata to the new DataFrame.
-    """
+    """Test that using df.config_meta.some_method copies metadata to the new DataFrame."""
     df = pl.DataFrame({"val": [10, 20]})
     df.config_meta.set(source="generated", confidence=0.9)
 
@@ -27,9 +25,7 @@ def test_preserving_transform_copies_metadata():
 
 
 def test_disable_auto_preserve():
-    """
-    Test that disabling auto-preserve stops regular DataFrame methods from copying metadata.
-    """
+    """Test that disabling auto-preserve stops regular DataFrame methods from copying metadata."""
     # Disable auto-preservation
     ConfigMetaOpts.disable_auto_preserve()
 
@@ -56,9 +52,7 @@ def test_disable_auto_preserve():
 
 
 def test_re_enable_auto_preserve():
-    """
-    Test that re-enabling auto-preserve restores metadata copying behavior.
-    """
+    """Test that re-enabling auto-preserve restores metadata copying behavior."""
     # First disable
     ConfigMetaOpts.disable_auto_preserve()
 

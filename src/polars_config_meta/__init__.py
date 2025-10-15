@@ -1,3 +1,10 @@
+"""Polars plugin for persistent DataFrame-level metadata.
+
+This module provides a configuration metadata management system for Polars DataFrames,
+allowing users to attach, preserve, and transfer metadata across various DataFrame
+operations.
+"""
+
 import json
 import weakref
 from typing import Literal, overload
@@ -56,7 +63,11 @@ METHODS_TO_PATCH = [
 
 
 def _copy_metadata_to_result(source_df: pl.DataFrame | pl.LazyFrame, result):
-    """Helper to copy metadata from source to result DataFrame."""
+    """Copy metadata from source to result DataFrame.
+
+    Ensures that metadata is transferred when a new DataFrame is created from an
+    existing one.
+    """
     if isinstance(result, (pl.DataFrame, pl.LazyFrame)):
         source_id = id(source_df)
         if source_id in ConfigMetaPlugin._df_id_to_meta:
@@ -128,14 +139,13 @@ def _repatch_all():
 @register_dataframe_namespace("config_meta")
 @register_lazyframe_namespace("config_meta")
 class ConfigMetaPlugin:
-    """
-    A plugin that:
-      - attaches in-memory metadata to Polars DataFrames
-      - intercepts any df.config_meta.some_method(...) calls:
-          * if 'some_method' is not defined here, we forward it to df.some_method
-          * if that call returns a new DataFrame, we copy the old one's metadata
-      - special case for write_parquet -> store plugin metadata in the Parquet file
-      - ALSO patches regular DataFrame methods to preserve metadata automatically
+    """A plugin for managing DataFrame metadata.
+
+    This plugin provides functionality to:
+    - Attach in-memory metadata to Polars DataFrames
+    - Intercept method calls through df.config_meta
+    - Preserve metadata across DataFrame transformations
+    - Handle special cases like Parquet file writing
     """
 
     # Global dictionaries to store metadata:
@@ -143,6 +153,12 @@ class ConfigMetaPlugin:
     _df_id_to_ref = {}
 
     def __init__(self, df: pl.DataFrame | pl.LazyFrame):
+        """Initialize the ConfigMetaPlugin for a specific DataFrame.
+
+        Args:
+            df: The Polars DataFrame or LazyFrame to attach metadata to.
+
+        """
         self._df = df
         self._df_id = id(df)
         # If new to us, register a weakref so we can remove it on GC
@@ -167,15 +183,25 @@ class ConfigMetaPlugin:
             cls._df_id_to_meta.pop(to_remove, None)
 
     def set(self, **kwargs) -> None:
+        """Set metadata for the DataFrame.
+
+        Args:
+            **kwargs: Key-value pairs to store as metadata.
+
+        """
         self._df_id_to_meta[self._df_id].update(kwargs)
 
     def update(self, mapping: dict) -> None:
+        """Update existing metadata with new key-value pairs.
+
+        Args:
+            mapping: A dictionary of metadata to update.
+
+        """
         self._df_id_to_meta[self._df_id].update(mapping)
 
     def merge(self, *dfs: pl.DataFrame | pl.LazyFrame) -> None:
-        """
-        Merge metadata from other dataframes by dict.update.
-        """
+        """Merge metadata from other dataframes by dict.update."""
         for other_df in dfs:
             ConfigMetaPlugin(other_df)  # ensure it's registered
             other_id = id(other_df)
@@ -184,13 +210,26 @@ class ConfigMetaPlugin:
             )
 
     def get_metadata(self) -> dict:
+        """Retrieve the current metadata for the DataFrame.
+
+        Returns:
+            A dictionary containing the DataFrame's metadata.
+
+        """
         return self._df_id_to_meta[self._df_id]
 
     def __getattr__(self, name: str):
-        """
-        Fallback for calls like: df.config_meta.write_parquet(...)
-        or df.config_meta.with_columns(...).
-        If 'name' is not a method/attribute on this plugin, try to get it from self._df.
+        """Provide fallback for method calls not defined in the plugin.
+
+        This method allows intercepting and forwarding method calls to the underlying
+        DataFrame, with special handling for certain methods like write_parquet.
+
+        Args:
+            name: The name of the method being called.
+
+        Returns:
+            The result of the method call on the underlying DataFrame.
+
         """
         # Special case for "write_parquet": we want to intercept that.
         if name == "write_parquet":
@@ -217,12 +256,11 @@ class ConfigMetaPlugin:
         return wrapper
 
     def _write_parquet_plugin(self, file_path: str, **kwargs):
-        """
-        Our custom writer that:
-          1) extracts plugin metadata
-          2) converts DF to Arrow
-          3) attaches the metadata to the Arrow schema
-          4) writes to Parquet with PyArrow
+        """Our custom writer that:
+        1) extracts plugin metadata
+        2) converts DF to Arrow
+        3) attaches the metadata to the Arrow schema
+        4) writes to Parquet with PyArrow
         """
         import pyarrow.parquet as pq
 
@@ -266,8 +304,7 @@ def _load_parquet_with_meta(
     lazy: bool = False,
     **kwargs,
 ) -> pl.DataFrame | pl.LazyFrame:
-    """
-    Loads only the metadata from a parquet file with PyArrow
+    """Loads only the metadata from a parquet file with PyArrow
     and extracts the 'polars_plugin_meta' we stored.
     Then loads the data using either the polars
     `.read_parquet' or `.scan_parquet` methods,
@@ -296,14 +333,32 @@ def _load_parquet_with_meta(
 
 
 def read_parquet_with_meta(file_path: str, **kwargs) -> pl.DataFrame:
-    """
-    Reads a parquet file along with the metadata.
+    """Read a Parquet file with its associated metadata.
+
+    Loads the Parquet file and retrieves any stored plugin metadata.
+
+    Args:
+        file_path: Path to the Parquet file to read.
+        **kwargs: Additional arguments to pass to the reading method.
+
+    Returns:
+        A Polars DataFrame with restored metadata.
+
     """
     return _load_parquet_with_meta(file_path, lazy=False, **kwargs)
 
 
 def scan_parquet_with_meta(file_path: str, **kwargs) -> pl.LazyFrame:
-    """
-    Scans a parquet file along with the metadata.
+    """Scan a Parquet file with its associated metadata.
+
+    Scans the Parquet file and retrieves any stored plugin metadata.
+
+    Args:
+        file_path: Path to the Parquet file to scan.
+        **kwargs: Additional arguments to pass to the scanning method.
+
+    Returns:
+        A Polars LazyFrame with restored metadata.
+
     """
     return _load_parquet_with_meta(file_path, lazy=True, **kwargs)
