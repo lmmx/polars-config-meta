@@ -168,6 +168,7 @@ def verify_patching(method_name: str = None) -> None:
     >>> from polars_config_meta.diagnostics import verify_patching
     >>> verify_patching('with_columns')  # doctest: +SKIP
     >>> verify_patching()  # Test multiple methods  # doctest: +SKIP
+
     """
     if method_name:
         test_methods = [method_name]
