@@ -12,7 +12,25 @@ from typing import Literal, overload
 import polars as pl
 from polars.api import register_dataframe_namespace, register_lazyframe_namespace
 
+from .diagnostics import (
+    check_method_discovered,
+    compare_discovered_methods,
+    print_discovered_methods,
+    verify_patching,
+)
 from .discovery import discover_patchable_methods, patch_method, unpatch_all_methods
+
+__all__ = [
+    "ConfigMetaOpts",
+    "ConfigMetaPlugin",
+    "read_parquet_with_meta",
+    "scan_parquet_with_meta",
+    # Diagnostics
+    "check_method_discovered",
+    "compare_discovered_methods",
+    "print_discovered_methods",
+    "verify_patching",
+]
 
 
 # Configuration for automatic metadata preservation

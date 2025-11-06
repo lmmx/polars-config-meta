@@ -7,6 +7,7 @@ preservation, copying, and special handling of DataFrame operations.
 import io
 
 import polars as pl
+
 from polars_config_meta import read_parquet_with_meta, scan_parquet_with_meta
 
 
