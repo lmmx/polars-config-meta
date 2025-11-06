@@ -4,9 +4,9 @@
 # Enable Pyflakes (`F`) and a subset of the pycodestyle (`E`) codes by default.
 # Unlike Flake8, Ruff doesn't enable pycodestyle warnings (`W`) or
 # McCabe complexity (`C901`) by default.
-select = ["E4", "E7", "E9", "F", "UP", "D"]
 ignore = [
   "D107", # Missing docstring in __init__
   "D203", # 1 blank line required before class docstring
   "D213", # Multi-line docstring summary should start at the second line
 ]
+select = ["D", "E4", "E7", "E9", "F", "UP"]

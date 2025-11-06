@@ -1,56 +1,45 @@
 [build-system]
 build-backend = "pdm.backend"
-requires = [
-  "pdm-backend"
-]
+requires = ["pdm-backend"]
 
 [dependency-groups]
-dev = [
-  "pdm>=2.22.3",
-  "pdm-bump>=0.9.10"
-]
+dev = ["pdm-bump>=0.9.10", "pdm>=2.22.3"]
+full = ["polars[pandas]>=1.21.0", "pyarrow>=19.0.0"]
+test = ["pytest>=8.4.0"]
 
 [project]
-name = "polars-config-meta"
-version = "0.2.0"
-description = "A Polars plugin for persistent DataFrame-level metadata"
-readme = "README.md"
-authors = [
-  {name = "Louis Maddox", email = "louismmx@gmail.com"}
-]
-requires-python = ">=3.9"
-dependencies = []
+authors = [{ email = "louismmx@gmail.com", name = "Louis Maddox" }]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Intended Audience :: Developers",
-  "Natural Language :: English",
   "License :: OSI Approved :: MIT License",
+  "Natural Language :: English",
   "Operating System :: OS Independent",
-  "Programming Language :: Python",
-  "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
-  "Programming Language :: Python :: 3.13"
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python",
 ]
+dependencies = []
+description = "A Polars plugin for persistent DataFrame-level metadata"
+name = "polars-config-meta"
+readme = "README.md"
+requires-python = ">=3.9"
+version = "0.2.0"
 
 [project.optional-dependencies]
-polars = [
-  "polars>=1.21.0"
-]
-polars-lts-cpu = [
-  "polars-lts-cpu>=1.21.0"
-]
-dev = [
-  "pre-commit>=4.1.0",
-  "pytest>=8.3.4"
-]
-pyarrow = [
-  "pyarrow>=19.0.0"
-]
+dev = ["pre-commit>=4.1.0", "pytest>=8.3.4"]
+polars = ["polars>=1.21.0"]
+polars-lts-cpu = ["polars-lts-cpu>=1.21.0"]
+pyarrow = ["pyarrow>=19.0.0"]
 
 [project.urls]
 Homepage = "https://github.com/lmmx/polars-config-meta"
 Repository = "https://github.com/lmmx/polars-config-meta.git"
+
+[tool.uv]
+default-groups = ["dev", "full", "test"]

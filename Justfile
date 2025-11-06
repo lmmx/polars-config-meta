@@ -126,15 +126,11 @@ code-quality:
     taplo lint
     taplo format --check
     just fix-eof-ws check
-    cargo machete
-    cargo fmt --check --all
 
 code-quality-fix:
     taplo lint
     taplo format
     just fix-eof-ws
-    cargo machete
-    cargo fmt --all
 
 # -------------------------------------
 
