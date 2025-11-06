@@ -142,8 +142,6 @@ def test_check_specific_methods():
 
 def test_verify_patching_works():
     """Verify that discovered methods actually get patched and work correctly."""
-    import polars_config_meta  # Trigger patching
-
     df = pl.DataFrame({"x": [1, 2, 3]})
     df.config_meta.set(test="value")
 
