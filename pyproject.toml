@@ -29,7 +29,7 @@ description = "A Polars plugin for persistent DataFrame-level metadata"
 name = "polars-config-meta"
 readme = "README.md"
 requires-python = ">=3.9"
-version = "0.2.0"
+version = "0.3.0"
 
 [project.optional-dependencies]
 dev = ["pre-commit>=4.1.0", "pytest>=8.3.4"]
