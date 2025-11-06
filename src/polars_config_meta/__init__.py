@@ -12,6 +12,26 @@ from typing import Literal, overload
 import polars as pl
 from polars.api import register_dataframe_namespace, register_lazyframe_namespace
 
+from .diagnostics import (
+    check_method_discovered,
+    compare_discovered_methods,
+    print_discovered_methods,
+    verify_patching,
+)
+from .discovery import discover_patchable_methods, patch_method, unpatch_all_methods
+
+__all__ = [
+    "ConfigMetaOpts",
+    "ConfigMetaPlugin",
+    "read_parquet_with_meta",
+    "scan_parquet_with_meta",
+    # Diagnostics
+    "check_method_discovered",
+    "compare_discovered_methods",
+    "print_discovered_methods",
+    "verify_patching",
+]
+
 
 # Configuration for automatic metadata preservation
 class ConfigMetaOpts:
@@ -32,36 +52,6 @@ class ConfigMetaOpts:
         _unpatch_all()
 
 
-# Store original methods before patching
-_ORIGINAL_METHODS = {}
-_IS_PATCHED = False
-
-# Methods that return DataFrames and should preserve metadata
-METHODS_TO_PATCH = [
-    "with_columns",
-    "select",
-    "filter",
-    "sort",
-    "unique",
-    "drop",
-    "rename",
-    "cast",
-    "with_columns_seq",
-    "drop_nulls",
-    "fill_null",
-    "fill_nan",
-    "head",
-    "tail",
-    "sample",
-    "slice",
-    "limit",
-    "reverse",
-    "rechunk",
-    "clone",
-    "clear",
-]
-
-
 def _copy_metadata_to_result(source_df: pl.DataFrame | pl.LazyFrame, result):
     """Copy metadata from source to result DataFrame.
 
@@ -79,26 +69,7 @@ def _copy_metadata_to_result(source_df: pl.DataFrame | pl.LazyFrame, result):
     return result
 
 
-def _patch_dataframe_method(cls, method_name: str):
-    """Patch a DataFrame/LazyFrame method to preserve metadata."""
-    if not hasattr(cls, method_name):
-        return
-
-    key = (cls, method_name)
-
-    # Store original only if we haven't stored it before
-    if key not in _ORIGINAL_METHODS:
-        original_method = getattr(cls, method_name)
-        _ORIGINAL_METHODS[key] = original_method
-    else:
-        # Use the stored original (in case we're re-patching after unpatch)
-        original_method = _ORIGINAL_METHODS[key]
-
-    def wrapped_method(self, *args, **kwargs):
-        result = original_method(self, *args, **kwargs)
-        return _copy_metadata_to_result(self, result)
-
-    setattr(cls, method_name, wrapped_method)
+_IS_PATCHED = False
 
 
 def _ensure_patched():
@@ -110,9 +81,15 @@ def _ensure_patched():
     if _IS_PATCHED:
         return
 
-    for cls in [pl.DataFrame, pl.LazyFrame]:
-        for method_name in METHODS_TO_PATCH:
-            _patch_dataframe_method(cls, method_name)
+    # Discover and patch all methods that return DataFrame/LazyFrame
+    dataframe_methods = discover_patchable_methods(pl.DataFrame)
+    lazyframe_methods = discover_patchable_methods(pl.LazyFrame)
+
+    for method_name in dataframe_methods:
+        patch_method(pl.DataFrame, method_name, _copy_metadata_to_result)
+
+    for method_name in lazyframe_methods:
+        patch_method(pl.LazyFrame, method_name, _copy_metadata_to_result)
 
     _IS_PATCHED = True
 
@@ -123,9 +100,7 @@ def _unpatch_all():
     if not _IS_PATCHED:
         return
 
-    for (cls, method_name), original_method in _ORIGINAL_METHODS.items():
-        setattr(cls, method_name, original_method)
-
+    unpatch_all_methods()
     _IS_PATCHED = False
 
 
@@ -217,6 +192,10 @@ class ConfigMetaPlugin:
 
         """
         return self._df_id_to_meta[self._df_id]
+
+    def clear_metadata(self) -> None:
+        """Remove all metadata for this DataFrame."""
+        self._df_id_to_meta[self._df_id] = {}
 
     def __getattr__(self, name: str):
         """Provide fallback for method calls not defined in the plugin.
@@ -313,7 +292,7 @@ def _load_parquet_with_meta(
     and attaches the associated plugin metadata to the resulting DataFrame.
 
     Args:
-        file_path: Path to the Parquet file to load.  lazy: Whether to load the file lazily (as a LazyFrame) or eagerly.
+        file_path: Path to the Parquet file to load.
         lazy: Whether to return a LazyFrame from the loaded Parquet (if not, a DataFrame).
         **kwargs: Additional arguments to pass to the Polars reading method.
 

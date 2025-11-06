@@ -253,14 +253,11 @@ print(df_loaded.config_meta.get_metadata())
 
 ### Automatic Patching
 
-When you first access `.config_meta` on any DataFrame, the plugin automatically patches common Polars methods like:
-- `with_columns`, `select`, `filter`, `sort`, `unique`, `drop`, `rename`, `cast`
-- `drop_nulls`, `fill_null`, `fill_nan`
-- `head`, `tail`, `sample`, `slice`, `limit`
-- `reverse`, `rechunk`, `clone`, `clear`
-- ... and more
+When you first access `.config_meta` on any DataFrame, the plugin automatically patches methods that return a DataFrame or LazyFrame. It determines which methods to patch by inspecting their return type annotations (or type hints) at runtime.
 
-These patched methods automatically copy metadata from the source DataFrame to the result DataFrame.
+Patched methods include common Polars operations like `with_columns`, `select`, `filter`, and so on.
+
+All patched methods automatically copy metadata from the source DataFrame to the result.
 
 ### Storage and Garbage Collection
 
@@ -289,6 +286,45 @@ When you call `df.config_meta.some_method(...)`:
 
 - **Configuration is Global**
   The `ConfigMetaOpts` settings apply globally to all DataFrames in your Python session.
+
+## Diagnostics (Developer Tools)
+
+The plugin provides a diagnostics module for inspecting method discovery and verifying that metadata patching is working correctly. These functions are intended for developers and can be run interactively or in tests. If you experience unexpected behaviour please try running these to diagnose the problem when filing a bug report.
+
+### Available Functions
+
+* `print_discovered_methods(cls)` prints all methods discovered for `DataFrame` or `LazyFrame`.
+* `compare_discovered_methods()` compares discovered methods between `DataFrame` and `LazyFrame`.
+* `check_method_discovered(method_name)` checks if a specific method was discovered.
+* `verify_patching()` verifies that patching works as expected.
+
+### Example Usage
+
+- Adapted from the [discovery](https://github.com/lmmx/polars-config-meta/blob/master/tests/discovery_test.py) test module
+
+```python
+import polars as pl
+from polars_config_meta.diagnostics import (
+    print_discovered_methods,
+    compare_discovered_methods,
+    check_method_discovered,
+    verify_patching,
+)
+
+# Print all discovered DataFrame methods
+print_discovered_methods(pl.DataFrame)
+
+# Compare DataFrame vs LazyFrame methods
+compare_discovered_methods()
+
+# Check critical methods individually
+for method in ["with_columns", "select", "filter", "sort"]:
+    if not check_method_discovered(method):
+        print(f"Method {method} is missing!")
+
+# Verify that patching preserves metadata as expected
+verify_patching()
+```
 
 ## Contributing
 
