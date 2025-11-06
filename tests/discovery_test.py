@@ -34,6 +34,7 @@ def test_check_specific_methods():
     We can be certain these will not change, so if they are missing something broke.
     """
     critical_methods = [
+        "lazy",
         "with_columns",
         "select",
         "filter",

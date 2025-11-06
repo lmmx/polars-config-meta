@@ -7,7 +7,7 @@ metadata preservation.
 
 import polars as pl
 
-from .discovery import discover_patchable_methods
+from .discovery import _ORIGINAL_METHODS, discover_patchable_methods
 
 
 def print_discovered_methods(cls: type = None) -> None:
@@ -74,6 +74,8 @@ def compare_discovered_methods() -> dict:
     """
     df_methods = discover_patchable_methods(pl.DataFrame)
     lf_methods = discover_patchable_methods(pl.LazyFrame)
+    assert df_methods, "No DataFrame methods found"
+    assert lf_methods, "No LazyFrame methods found"
 
     common = df_methods & lf_methods
     only_df = df_methods - lf_methods
@@ -166,19 +168,44 @@ def verify_patching(method_name: str = None) -> None:
     >>> from polars_config_meta.diagnostics import verify_patching
     >>> verify_patching('with_columns')  # doctest: +SKIP
     >>> verify_patching()  # Test multiple methods  # doctest: +SKIP
-
     """
     if method_name:
         test_methods = [method_name]
     else:
-        # Standard test set
-        test_methods = ["with_columns", "select", "filter", "head", "tail", "clone"]
+        # Full test set
+        test_methods = compare_discovered_methods()
+        test_methods = test_methods["dataframe"] & test_methods["lazyframe"]
 
     df = pl.DataFrame({"x": [1, 2, 3]})
     df.config_meta.set(test="value")
 
+    # --- DEBUG ADDITION: show what was actually patched ---
+    if _ORIGINAL_METHODS:
+        print("\n⚡ Patched methods currently tracked (_ORIGINAL_METHODS):")
+        for cls, name in sorted(
+            _ORIGINAL_METHODS.keys(), key=lambda k: (k[0].__name__, k[1])
+        ):
+            print(f"  {cls.__name__}.{name}")
+        else:
+            print("\n⚠ No methods have been patched yet according to _ORIGINAL_METHODS")
+
+    # Keep your original assertions intact
     discovered = discover_patchable_methods(pl.DataFrame)
+
+    # Instead of failing if discover_patchable_methods is empty, check _ORIGINAL_METHODS
+    discovered = discover_patchable_methods(pl.DataFrame)
+
+    if not discovered and _ORIGINAL_METHODS:
+        # Fall back to already-patched methods
+        discovered = {
+            name
+            for cls, name in _ORIGINAL_METHODS.keys()
+            if cls.__name__ == "DataFrame"
+        }
+
+    assert discovered, "No patchable methods discovered, cannot verify anything"
     test_methods = [m for m in test_methods if m in discovered]
+    assert test_methods, "No test methods discovered, cannot verify anything"
 
     print("=" * 80)
     print("PATCHING VERIFICATION")

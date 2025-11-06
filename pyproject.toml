@@ -3,7 +3,7 @@ build-backend = "pdm.backend"
 requires = ["pdm-backend"]
 
 [dependency-groups]
-dev = ["pdm-bump>=0.9.10", "pdm>=2.22.3"]
+dev = ["pdbpp>=0.11.7", "pdm-bump>=0.9.10", "pdm>=2.22.3"]
 full = ["polars[pandas]>=1.21.0", "pyarrow>=19.0.0"]
 test = ["pytest>=8.4.0"]
 
