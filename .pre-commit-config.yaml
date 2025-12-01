@@ -25,7 +25,7 @@ repos:
       - id: name-tests-test
       - id: trailing-whitespace
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.6
+    rev: v0.14.7
     hooks:
       # Run the linter
       - id: ruff-check
