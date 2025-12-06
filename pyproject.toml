@@ -4,7 +4,7 @@ requires = ["pdm-backend"]
 
 [dependency-groups]
 dev = ["pdbpp>=0.11.7", "pdm-bump>=0.9.10", "pdm>=2.22.3"]
-full = ["polars[pandas]>=1.21.0", "pyarrow>=19.0.0"]
+full = ["polars[pandas]>=1.21.0", "pyarrow>=22.0.0"]
 test = ["pytest>=8.4.0"]
 
 [project]
@@ -20,7 +20,6 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python",
 ]
@@ -28,14 +27,13 @@ dependencies = []
 description = "A Polars plugin for persistent DataFrame-level metadata"
 name = "polars-config-meta"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 version = "0.3.0"
 
 [project.optional-dependencies]
-dev = ["pre-commit>=4.1.0", "pytest>=8.3.4"]
 polars = ["polars>=1.21.0"]
 polars-lts-cpu = ["polars-lts-cpu>=1.21.0"]
-pyarrow = ["pyarrow>=19.0.0"]
+pyarrow = ["pyarrow>=22.0.0"]
 
 [project.urls]
 Homepage = "https://github.com/lmmx/polars-config-meta"
