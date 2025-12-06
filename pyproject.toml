@@ -4,7 +4,7 @@ requires = ["pdm-backend"]
 
 [dependency-groups]
 dev = ["pdbpp>=0.11.7", "pdm-bump>=0.9.10", "pdm>=2.22.3"]
-full = ["polars[pandas]>=1.21.0", "pyarrow>=19.0.0"]
+full = ["polars[pandas]>=1.21.0", "pyarrow>=22.0.0"]
 test = ["pytest>=8.4.0"]
 
 [project]
@@ -33,7 +33,7 @@ version = "0.3.0"
 [project.optional-dependencies]
 polars = ["polars>=1.21.0"]
 polars-lts-cpu = ["polars-lts-cpu>=1.21.0"]
-pyarrow = ["pyarrow>=19.0.0"]
+pyarrow = ["pyarrow>=22.0.0"]
 
 [project.urls]
 Homepage = "https://github.com/lmmx/polars-config-meta"
