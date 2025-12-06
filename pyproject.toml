@@ -32,7 +32,6 @@ requires-python = ">=3.9"
 version = "0.3.0"
 
 [project.optional-dependencies]
-dev = ["pre-commit>=4.1.0", "pytest>=8.3.4"]
 polars = ["polars>=1.21.0"]
 polars-lts-cpu = ["polars-lts-cpu>=1.21.0"]
 pyarrow = ["pyarrow>=19.0.0"]
