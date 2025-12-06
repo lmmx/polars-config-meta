@@ -6,7 +6,8 @@ across method calls.
 """
 
 import inspect
-from typing import Any, Callable, get_type_hints
+from typing import Any, get_type_hints
+from collections.abc import Callable
 
 # Store original methods before patching
 _ORIGINAL_METHODS: dict[tuple[type, str], Any] = {}
