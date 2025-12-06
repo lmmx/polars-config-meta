@@ -31,14 +31,16 @@ jobs:
 
           LIST=$(uv python list --all-versions --output-format json)
 
+          # Excluding 3.15.0a2 specifically as numpy won't build on it (needed for pyarrow)
           CPYTHON_VERSIONS=$(echo "$LIST" | jq -c --arg min "$MIN_VERSION" '
             ($min | split(".") | {major: .[0]|tonumber, minor: .[1]|tonumber}) as $minv |
-            [.[] | {v:.version_parts, t:.variant, impl:.implementation}]
+            [.[] | {v:.version_parts, t:.variant, impl:.implementation, full:.version}]
             | unique_by([.v.minor,.t])
             | map(select(
                 (.impl == "cpython") and
                 (.v.major == 3) and
-                (.v.minor >= $minv.minor)
+                (.v.minor >= $minv.minor) and
+                (.full != "3.15.0a2")
               ))
             | map(select(.t != "freethreaded")) # Delete this line to include FT variants
             | map("\(.v.major).\(.v.minor)\(if .t=="freethreaded" then "t" else "" end)")')
