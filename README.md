@@ -4,7 +4,7 @@
 
 `polars-config-meta` offers a simple way to store and propagate Python-side metadata for Polars `DataFrame`s, `LazyFrame`s, and `Series`. It achieves this by:
 
-- Registering a custom `config_meta` namespace on each `DataFrame`, `LazyFrame`, and `Series`.
+- Registering a custom `config_meta` namespace on each `DataFrame`, `LazyFrame`, and `Series` object.
 - Keeping an internal dictionary keyed by the `id(obj)`, with automatic **weak-reference cleanup** to avoid memory leaks.
 - **Automatically patching common Polars methods** (like `with_columns`, `select`, `filter`, `get_column`, `to_frame`, etc.) so that metadata is preserved even when using regular Polars syntax.
 - Providing a "fallthrough" mechanism so you can write `df.config_meta.some_polars_method(...)` and have the resulting new frame/series object automatically inherit the old metadata,
@@ -28,7 +28,7 @@ pip install polars-config-meta[pyarrow]
 
 ## Key Points
 
-1. **Automatic Metadata Preservation (New in v0.2.0!)**
+1. **Automatic Metadata Preservation**
    By default, the plugin patches common Polars methods (`with_columns`, `select`, `filter`, `sort`, `get_column`, `to_frame`, etc.) to automatically preserve metadata. This means both of these will preserve metadata:
    - `df.with_columns(...)` ← regular Polars method (automatically patched)
    - `df.config_meta.with_columns(...)` ← through the namespace
@@ -59,7 +59,7 @@ pip install polars-config-meta[pyarrow]
    # Metadata is preserved throughout the chain!
 ```
 
-6. **Cross-Type Metadata Flow (New in v0.4.0!)**
+6. **Cross-Type Metadata Flow**
    Metadata automatically propagates across type boundaries:
 ```python
    df.config_meta.set(owner="Alice")
@@ -184,32 +184,32 @@ print(df4.config_meta.get_metadata())
 ### Configuration Options
 
 - **`ConfigMetaOpts.enable_auto_preserve()`**: Enable automatic metadata preservation for regular DataFrame/LazyFrame/Series methods (this is the default behavior).
-- **`ConfigMetaOpts.disable_auto_preserve()`**: Disable automatic preservation. Only `obj.config_meta.<method>()` will preserve metadata.
+- **`ConfigMetaOpts.disable_auto_preserve()`**: Disable automatic preservation. Only `df.config_meta.<method>()` will preserve metadata.
 
-**Note**: The `obj.config_meta.<method>()` syntax **always** preserves metadata, regardless of the configuration setting.
+**Note**: The `df.config_meta.<method>()` syntax **always** preserves metadata, regardless of the configuration setting.
 
 ## API Reference
 
 ### Setting and Retrieving Metadata
 
-- **`obj.config_meta.set(**kwargs)`**: Set metadata key-value pairs
+- **`df.config_meta.set(**kwargs)`**: Set metadata key-value pairs
 ```python
   df.config_meta.set(owner="Alice", confidence=0.95, version=2)
   s.config_meta.set(source="sensor", calibrated=True)
 ```
 
-- **`obj.config_meta.get_metadata()`**: Get all metadata as a dictionary
+- **`df.config_meta.get_metadata()`**: Get all metadata as a dictionary
 ```python
   metadata = df.config_meta.get_metadata()
   # -> {'owner': 'Alice', 'confidence': 0.95, 'version': 2}
 ```
 
-- **`obj.config_meta.update(mapping)`**: Update metadata from a dictionary
+- **`df.config_meta.update(mapping)`**: Update metadata from a dictionary
 ```python
   df.config_meta.update({"confidence": 0.99, "validated": True})
 ```
 
-- **`obj.config_meta.merge(*objs)`**: Merge metadata from other DataFrames, LazyFrames, or Series
+- **`df.config_meta.merge(*objs)`**: Merge metadata from other DataFrames, LazyFrames, or Series
 ```python
   df3.config_meta.merge(df1, df2)
   # df3 now has metadata from both df1 and df2
@@ -219,14 +219,14 @@ print(df4.config_meta.get_metadata())
   series.config_meta.merge(df1, df2)
 ```
 
-- **`obj.config_meta.clear_metadata()`**: Remove all metadata for this object
+- **`df.config_meta.clear_metadata()`**: Remove all metadata for this object
 ```python
   df.config_meta.clear_metadata()
 ```
 
 ### Parquet I/O
 
-- **`obj.config_meta.write_parquet(file_path, **kwargs)`**: Write to Parquet with embedded metadata
+- **`df.config_meta.write_parquet(file_path, **kwargs)`**: Write to Parquet with embedded metadata
 ```python
   df.config_meta.write_parquet("output.parquet")
   series.config_meta.write_parquet("series.parquet")  # converts to single-column DataFrame
@@ -246,7 +246,9 @@ print(df4.config_meta.get_metadata())
 
 ### Automatic Method Forwarding
 
-Any Polars DataFrame/LazyFrame/Series method can be called through `obj.config_meta.<method>()`:
+Any Polars DataFrame/LazyFrame/Series method can be called through `df.config_meta.<method>()` (and
+likewise for LazyFrame and Series objects):
+
 ```python
 # DataFrame methods:
 df.config_meta.with_columns(new_col=pl.col("a") * 2)
@@ -337,7 +339,8 @@ leaks and keeps the plugin usage simple.
 
 ### Method Interception
 
-When you call `obj.config_meta.some_method(...)`:
+When you call `df.config_meta.some_method(...)`:
+
 1. The plugin checks if `some_method` exists on the plugin itself (like `set`, `get_metadata`, `write_parquet`)
 2. If not, it forwards the call to the underlying object's method
 3. If the result is a new DataFrame/LazyFrame/Series, it automatically copies the metadata
@@ -348,7 +351,7 @@ When you call `obj.config_meta.some_method(...)`:
   This is purely at the Python layer. Polars doesn't guarantee stable IDs or official hooks for such metadata.
 
 - **Metadata is Ephemeral (Unless Saved)**
-  Metadata is stored in memory and tied to object IDs. It won't survive serialization unless you explicitly use `obj.config_meta.write_parquet()` and `read_parquet_with_meta()`.
+  Metadata is stored in memory and tied to object IDs. It won't survive serialization unless you explicitly use `df.config_meta.write_parquet()` and `read_parquet_with_meta()`.
 
 - **Other Formats Not Supported**
   Currently, only Parquet format supports automatic metadata embedding/extraction. For CSV, Arrow, IPC, etc., you'd need to implement your own serialization logic.
@@ -373,6 +376,7 @@ The plugin provides a diagnostics module for inspecting method discovery and ver
 ### Example Usage
 
 - Adapted from the [discovery](https://github.com/lmmx/polars-config-meta/blob/master/tests/discovery_test.py) test module
+
 ```python
 import polars as pl
 from polars_config_meta.diagnostics import (
