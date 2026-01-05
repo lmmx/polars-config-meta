@@ -1,29 +1,35 @@
 """Automatic discovery and patching of DataFrame methods that return self.
 
-This module handles the runtime discovery of Polars DataFrame and LazyFrame methods
-that return instances of the same type, enabling automatic metadata preservation
+This module handles the runtime discovery of Polars DataFrame, LazyFrame, and Series
+methods that return instances of the same type, enabling automatic metadata preservation
 across method calls.
 """
 
 import inspect
-from typing import Any, get_type_hints
 from collections.abc import Callable
+from typing import Any, get_type_hints
+
+import polars as pl
 
 # Store original methods before patching
 _ORIGINAL_METHODS: dict[tuple[type, str], Any] = {}
 
+# All types we track metadata for
+_TRACKED_TYPES = (pl.DataFrame, pl.LazyFrame, pl.Series)
+_TRACKED_TYPE_NAMES = {"DataFrame", "LazyFrame", "Series"}
+
 
 def discover_patchable_methods(cls: type) -> set[str]:
-    """Discover all methods of a class that return instances of that class.
+    """Discover all methods of a class that return any tracked type.
 
     Uses type hints and return type inspection to identify methods that should
     preserve metadata when patched.
 
     Args:
-        cls: The class to inspect (DataFrame or LazyFrame)
+        cls: The class to inspect (DataFrame, LazyFrame, or Series)
 
     Returns:
-        Set of method names that return instances of the same class
+        Set of method names that return any tracked type (DataFrame, LazyFrame, or Series)
 
     """
     methods = set()
@@ -45,26 +51,23 @@ def discover_patchable_methods(cls: type) -> set[str]:
         except AttributeError:
             continue
 
-        # Check if method returns the class type
-        if _returns_self_type(cls, attr):
+        # Check if method returns any tracked type
+        if _returns_tracked_type(attr):
             methods.add(name)
 
     return methods
 
 
-def _returns_self_type(cls: type, method: Callable) -> bool:
-    """Check if a method's return type annotation indicates it returns an instance of cls.
+def _returns_tracked_type(method: Callable) -> bool:
+    """Check if a method's return type annotation indicates it returns a tracked type.
 
     Args:
-        cls: The class being checked
         method: The method to inspect
 
     Returns:
-        True if the method returns an instance of cls
+        True if the method returns DataFrame, LazyFrame, or Series
 
     """
-    class_name = cls.__name__
-
     # Try __annotations__ first (more reliable, doesn't need resolution)
     try:
         annotations = getattr(method, "__annotations__", {})
@@ -73,24 +76,19 @@ def _returns_self_type(cls: type, method: Callable) -> bool:
 
             # Handle string annotations
             if isinstance(return_annotation, str):
-                return (
-                    return_annotation == class_name
-                    or return_annotation == "Self"
-                    or f"'{class_name}'" in return_annotation
-                    or class_name in return_annotation
-                )
+                if return_annotation == "Self" or "Self" in return_annotation:
+                    return True
+                return any(name in return_annotation for name in _TRACKED_TYPE_NAMES)
 
             # Handle direct class reference
-            if return_annotation is cls:
+            if return_annotation in _TRACKED_TYPES:
                 return True
 
             # Handle string representation
             return_str = str(return_annotation)
-            if (
-                return_str == class_name
-                or "Self" in return_str
-                or class_name in return_str
-            ):
+            if "Self" in return_str:
+                return True
+            if any(name in return_str for name in _TRACKED_TYPE_NAMES):
                 return True
     except (AttributeError, TypeError):
         pass
@@ -104,18 +102,15 @@ def _returns_self_type(cls: type, method: Callable) -> bool:
             return False
 
         # Direct class reference
-        if return_type is cls:
+        if return_type in _TRACKED_TYPES:
             return True
 
         # Convert return type to string for comparison
         return_type_str = str(return_type)
 
-        return (
-            return_type_str == class_name
-            or "Self" in return_type_str
-            or f"'{class_name}'" in return_type_str
-            or class_name in return_type_str
-        )
+        if "Self" in return_type_str:
+            return True
+        return any(name in return_type_str for name in _TRACKED_TYPE_NAMES)
 
     except (AttributeError, NameError, TypeError):
         # Type hints unavailable or malformed

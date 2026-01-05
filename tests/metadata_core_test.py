@@ -123,3 +123,68 @@ def test_scan_parquet_with_metadata():
     import os
 
     os.remove(path)
+
+
+def test_basic_series_metadata_storage():
+    """Test basic set/get metadata on a Series."""
+    s = pl.Series("x", [1, 2, 3])
+    s.config_meta.set(owner="Alice", version=1)
+    md = s.config_meta.get_metadata()
+
+    assert md == {
+        "owner": "Alice",
+        "version": 1,
+    }, "Metadata not stored or retrieved properly on Series"
+
+
+def test_series_parquet_roundtrip_in_memory():
+    """Test Series parquet round-trip preserves metadata.
+
+    Series gets converted to single-column DataFrame for parquet storage.
+    """
+    s = pl.Series("col1", [1, 2, 3])
+    s.config_meta.set(author="Carol", purpose="series_demo")
+
+    buffer = io.BytesIO()
+    s.config_meta.write_parquet(buffer)
+    buffer.seek(0)
+
+    # Reads back as DataFrame (parquet doesn't have Series concept)
+    df_in = read_parquet_with_meta(buffer)
+    assert df_in.shape == (3, 1), "Data shape changed on Parquet roundtrip"
+    md_in = df_in.config_meta.get_metadata()
+    assert md_in == {
+        "author": "Carol",
+        "purpose": "series_demo",
+    }, "Metadata lost or altered in Series parquet roundtrip"
+
+
+def test_merge_metadata_across_types():
+    """Test merging metadata between DataFrames and Series."""
+    df = pl.DataFrame({"a": [1]})
+    df.config_meta.set(source="dataframe", shared="from_df")
+
+    s = pl.Series("b", [2])
+    s.config_meta.set(source="series", extra="from_series")
+
+    # Merge Series metadata into DataFrame
+    df2 = pl.DataFrame({"c": [3]})
+    df2.config_meta.merge(df, s)
+    md = df2.config_meta.get_metadata()
+
+    assert md == {
+        "source": "series",  # Series overwrites DataFrame (later wins)
+        "shared": "from_df",
+        "extra": "from_series",
+    }, "Cross-type merge did not behave as expected"
+
+    # Merge DataFrame metadata into Series
+    s2 = pl.Series("d", [4])
+    s2.config_meta.merge(s, df)
+    md2 = s2.config_meta.get_metadata()
+
+    assert md2 == {
+        "source": "dataframe",  # DataFrame overwrites Series (later wins)
+        "shared": "from_df",
+        "extra": "from_series",
+    }, "Cross-type merge into Series did not behave as expected"
