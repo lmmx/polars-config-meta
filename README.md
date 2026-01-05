@@ -1,15 +1,13 @@
 # polars-config-meta
 
-**A Polars plugin for persistent DataFrame-level metadata.**
+**A Polars plugin for persistent metadata on DataFrames, LazyFrames, and Series.**
 
-`polars-config-meta` offers a simple way to store and propagate Python-side metadata for Polars `DataFrame`s, `LazyFrame`s, and `Series`. It achieves this by:
+`polars-config-meta` attaches Python-side metadata to Polars objects and preserves it across transformations. It works by:
 
-- Registering a custom `config_meta` namespace on each `DataFrame`, `LazyFrame`, and `Series` object.
-- Keeping an internal dictionary keyed by the `id(obj)`, with automatic **weak-reference cleanup** to avoid memory leaks.
-- **Automatically patching common Polars methods** (like `with_columns`, `select`, `filter`, `get_column`, `to_frame`, etc.) so that metadata is preserved even when using regular Polars syntax.
-- Providing a "fallthrough" mechanism so you can write `df.config_meta.some_polars_method(...)` and have the resulting new frame/series object automatically inherit the old metadata,
-  for use to either explicitly note the metadata transfer or as a backup if a method was not monkeypatched (please file a bug report if you find any!).
-- Optionally embedding that metadata in **file‐level Parquet metadata** when you call `df.config_meta.write_parquet(...)`, and retrieving it with `read_parquet_with_meta(...)` (eager) or `scan_parquet_with_meta(...)` (lazy).
+- Registering a `config_meta` namespace on `DataFrame`, `LazyFrame`, and `Series`
+- Storing metadata in a dictionary keyed by `id(obj)`, with automatic **weak-reference cleanup**
+- **Patching Polars methods** (`with_columns`, `filter`, `get_column`, `to_frame`, etc.) so metadata propagates automatically, even across type boundaries
+- Optionally embedding metadata in **Parquet file-level metadata** via `write_parquet` / `read_parquet_with_meta`
 
 ## Installation
 ```bash
@@ -29,157 +27,89 @@ pip install polars-config-meta[pyarrow]
 ## Key Points
 
 1. **Automatic Metadata Preservation**
-   By default, the plugin patches common Polars methods (`with_columns`, `select`, `filter`, `sort`, `get_column`, `to_frame`, etc.) to automatically preserve metadata. This means both of these will preserve metadata:
-   - `df.with_columns(...)` ← regular Polars method (automatically patched)
-   - `df.config_meta.with_columns(...)` ← through the namespace
-
-   This behavior can be configured globally (see [Configuration](#configuration) below).
-
-2. **Weak-Reference Based**
-   We store metadata in class-level dictionaries keyed by `id(obj)` and hold a `weakref` to the frame or series object. Once the object is garbage-collected, the metadata is removed too.
-
-3. **Works with DataFrames, LazyFrames, and Series**
-   The plugin supports eager (`DataFrame`), lazy (`LazyFrame`), and columnar (`Series`) execution modes. Metadata flows seamlessly across type boundaries.
-
-4. **Parquet Integration**
-   - `df.config_meta.write_parquet("file.parquet")` automatically embeds the plugin metadata into the Arrow schema's `metadata`.
-   - `read_parquet_with_meta("file.parquet")` reads the file, extracts that metadata, and reattaches it to the returned `DataFrame`.
-   - `scan_parquet_with_meta("file.parquet")` scans the file, extracts that metadata, and reattaches it to the returned `LazyFrame`.
-   - `series.config_meta.write_parquet("file.parquet")` converts to a single-column DataFrame and writes with metadata.
-
-5. **Chainable Operations**
-   Since metadata is preserved across transformations, you can chain multiple operations:
-```python
-   result = (
-       df.config_meta.set(owner="Alice")
-       .with_columns(doubled=pl.col("a") * 2)
-       .filter(pl.col("doubled") > 5)
-       .select(["doubled"])
-   )
-   # Metadata is preserved throughout the chain!
-```
-
-6. **Cross-Type Metadata Flow**
-   Metadata automatically propagates across type boundaries:
+   The plugin patches common Polars methods so metadata propagates automatically:
 ```python
    df.config_meta.set(owner="Alice")
-   s = df.get_column("a")        # Series inherits metadata
-   df2 = s.to_frame()            # DataFrame inherits metadata
+   df2 = df.with_columns(doubled=pl.col("a") * 2)  # metadata preserved
+   df2.config_meta.get_metadata()  # {'owner': 'Alice'}
 ```
 
+2. **Cross-Type Flow**
+   Metadata flows across DataFrame, LazyFrame, and Series boundaries:
+```python
+   s = df.get_column("a")   # Series inherits from DataFrame
+   df2 = s.to_frame()       # DataFrame inherits from Series
+```
+
+3. **Weak-Reference Based**
+   Metadata is stored keyed by `id(obj)` with weak references, so when the object is garbage-collected, its metadata is automatically cleaned up.
+
+4. **Parquet Integration**
+   Metadata embeds in Parquet file-level metadata and survives round-trips:
+```python
+   df.config_meta.write_parquet("data.parquet")
+   df_loaded = read_parquet_with_meta("data.parquet")  # metadata restored
+```
+
+5. **Configurable**
+   Auto-preservation can be disabled globally; the `df.config_meta.<method>()` syntax always preserves metadata regardless of configuration.
+
 ## Basic Usage
+
 ```python
 import polars as pl
-import polars_config_meta  # this registers the plugin
+import polars_config_meta  # registers the plugin
 
 df = pl.DataFrame({"a": [1, 2, 3]})
 df.config_meta.set(owner="Alice", confidence=0.95)
 
-# Both of these preserve metadata (auto-patching is enabled by default):
-df2 = df.with_columns(doubled=pl.col("a") * 2)
-print(df2.config_meta.get_metadata())
-# -> {'owner': 'Alice', 'confidence': 0.95}
-
-df3 = df.config_meta.with_columns(tripled=pl.col("a") * 3)
-print(df3.config_meta.get_metadata())
-# -> {'owner': 'Alice', 'confidence': 0.95}
-
-# Chain operations - metadata flows through:
-df4 = (
+# Metadata preserved through transformations:
+df2 = (
     df.with_columns(squared=pl.col("a") ** 2)
       .filter(pl.col("squared") > 4)
       .select(["a", "squared"])
 )
-print(df4.config_meta.get_metadata())
-# -> {'owner': 'Alice', 'confidence': 0.95}
+df2.config_meta.get_metadata()
+# {'owner': 'Alice', 'confidence': 0.95}
 
-# Write to Parquet, storing the metadata in file-level metadata:
-df4.config_meta.write_parquet("output.parquet")
+# Flows across types:
+s = df.get_column("a")
+s.config_meta.get_metadata()
+# {'owner': 'Alice', 'confidence': 0.95}
 
-# Later, read it back:
+# Survives Parquet round-trip:
+df.config_meta.write_parquet("output.parquet")
+
 from polars_config_meta import read_parquet_with_meta
-df_in = read_parquet_with_meta("output.parquet")
-print(df_in.config_meta.get_metadata())
-# -> {'owner': 'Alice', 'confidence': 0.95}
+df_loaded = read_parquet_with_meta("output.parquet")
+df_loaded.config_meta.get_metadata()
+# {'owner': 'Alice', 'confidence': 0.95}
 ```
 
-## Series Support
-
-Series have full metadata support, including cross-type propagation:
-```python
-import polars as pl
-import polars_config_meta
-
-# Metadata flows from DataFrame to Series
-df = pl.DataFrame({"foo": [1, 2, 3], "bar": [4, 5, 6]})
-df.config_meta.set(owner="Alice", version=1)
-
-s = df.get_column("foo")
-print(s.config_meta.get_metadata())
-# -> {'owner': 'Alice', 'version': 1}
-
-# Metadata flows from Series to DataFrame
-s2 = pl.Series("vals", [10, 20, 30])
-s2.config_meta.set(source="sensor", calibrated=True)
-
-df2 = s2.to_frame()
-print(df2.config_meta.get_metadata())
-# -> {'source': 'sensor', 'calibrated': True}
-
-# Series method chains preserve metadata
-s3 = s.sort().head(2)
-print(s3.config_meta.get_metadata())
-# -> {'owner': 'Alice', 'version': 1}
-
-# Full chain: LazyFrame → DataFrame → Series
-lf = pl.LazyFrame({"x": [1, 2, 3]})
-lf.config_meta.set(pipeline="etl")
-s4 = lf.collect().get_column("x")
-print(s4.config_meta.get_metadata())
-# -> {'pipeline': 'etl'}
-```
-
-### Series Parquet I/O
-
-Series can be written to Parquet with metadata (converted to single-column DataFrame):
-```python
-s = pl.Series("values", [1, 2, 3])
-s.config_meta.set(source="experiment_1")
-s.config_meta.write_parquet("series_data.parquet")
-
-# Read back as DataFrame
-df = read_parquet_with_meta("series_data.parquet")
-print(df.config_meta.get_metadata())
-# -> {'source': 'experiment_1'}
-```
+LazyFrame and Series work in the same way. Any method that returns a DataFrame, LazyFrame, or Series will propagate metadata from its source.
 
 ## Configuration
 
-The plugin provides a `ConfigMetaOpts` class to control automatic metadata preservation behavior:
+Auto-preservation is enabled by default. To disable:
+
 ```python
 from polars_config_meta import ConfigMetaOpts
 
-# Disable automatic metadata preservation for regular DataFrame methods
 ConfigMetaOpts.disable_auto_preserve()
 
 df = pl.DataFrame({"a": [1, 2, 3]})
 df.config_meta.set(owner="Alice")
 
-df2 = df.with_columns(doubled=pl.col("a") * 2)
-print(df2.config_meta.get_metadata())
-# -> {} (metadata NOT preserved with regular methods)
+df.with_columns(doubled=pl.col("a") * 2).config_meta.get_metadata()
+# {}
 
-df3 = df.config_meta.with_columns(tripled=pl.col("a") * 3)
-print(df3.config_meta.get_metadata())
-# -> {'owner': 'Alice'} (still works via namespace!)
+df.config_meta.with_columns(doubled=pl.col("a") * 2).config_meta.get_metadata()
+# {'owner': 'Alice'}
 
-# Re-enable automatic preservation
-ConfigMetaOpts.enable_auto_preserve()
-
-df4 = df.with_columns(quadrupled=pl.col("a") * 4)
-print(df4.config_meta.get_metadata())
-# -> {'owner': 'Alice'} (metadata preserved again)
+ConfigMetaOpts.enable_auto_preserve()  # re-enable
 ```
+
+The `obj.config_meta.<method>()` syntax preserves metadata regardless of this setting.
 
 ### Configuration Options
 
@@ -190,181 +120,58 @@ print(df4.config_meta.get_metadata())
 
 ## API Reference
 
-### Setting and Retrieving Metadata
+### Metadata Operations
 
-- **`df.config_meta.set(**kwargs)`**: Set metadata key-value pairs
-```python
-  df.config_meta.set(owner="Alice", confidence=0.95, version=2)
-  s.config_meta.set(source="sensor", calibrated=True)
-```
-
-- **`df.config_meta.get_metadata()`**: Get all metadata as a dictionary
-```python
-  metadata = df.config_meta.get_metadata()
-  # -> {'owner': 'Alice', 'confidence': 0.95, 'version': 2}
-```
-
-- **`df.config_meta.update(mapping)`**: Update metadata from a dictionary
-```python
-  df.config_meta.update({"confidence": 0.99, "validated": True})
-```
-
-- **`df.config_meta.merge(*objs)`**: Merge metadata from other DataFrames, LazyFrames, or Series
-```python
-  df3.config_meta.merge(df1, df2)
-  # df3 now has metadata from both df1 and df2
-
-  # Cross-type merge also works:
-  df.config_meta.merge(series1, series2)
-  series.config_meta.merge(df1, df2)
-```
-
-- **`df.config_meta.clear_metadata()`**: Remove all metadata for this object
-```python
-  df.config_meta.clear_metadata()
-```
+| Method | Description |
+|--------|-------------|
+| `.config_meta.set(**kwargs)` | Set metadata key-value pairs |
+| `.config_meta.get_metadata()` | Get all metadata as a dict |
+| `.config_meta.update(mapping)` | Update metadata from a dict |
+| `.config_meta.merge(*objs)` | Merge metadata from other objects (later wins) |
+| `.config_meta.clear_metadata()` | Remove all metadata |
 
 ### Parquet I/O
 
-- **`df.config_meta.write_parquet(file_path, **kwargs)`**: Write to Parquet with embedded metadata
-```python
-  df.config_meta.write_parquet("output.parquet")
-  series.config_meta.write_parquet("series.parquet")  # converts to single-column DataFrame
-```
+| Function/Method | Description |
+|-----------------|-------------|
+| `.config_meta.write_parquet(path)` | Write with embedded metadata (Series converts to single-column DataFrame) |
+| `read_parquet_with_meta(path)` | Read DataFrame with metadata |
+| `scan_parquet_with_meta(path)` | Scan LazyFrame with metadata |
 
-- **`read_parquet_with_meta(file_path, **kwargs)`**: Read Parquet file with metadata (eager)
-```python
-  from polars_config_meta import read_parquet_with_meta
-  df = read_parquet_with_meta("output.parquet")
-```
+### Method Forwarding
 
-- **`scan_parquet_with_meta(file_path, **kwargs)`**: Scan Parquet file with metadata (lazy)
-```python
-  from polars_config_meta import scan_parquet_with_meta
-  lf = scan_parquet_with_meta("output.parquet")
-```
-
-### Automatic Method Forwarding
-
-Any Polars DataFrame/LazyFrame/Series method can be called through `df.config_meta.<method>()` (and
-likewise for LazyFrame and Series objects):
+Any Polars method can be called via `.config_meta.<method>()` to explicitly preserve metadata:
 
 ```python
-# DataFrame methods:
-df.config_meta.with_columns(new_col=pl.col("a") * 2)
-df.config_meta.select(["a", "b"])
 df.config_meta.filter(pl.col("a") > 0)
-df.config_meta.get_column("a")  # returns Series with metadata
-
-# Series methods:
 s.config_meta.sort()
-s.config_meta.head(10)
-s.config_meta.filter(s > 0)
-s.config_meta.to_frame()  # returns DataFrame with metadata
-```
-
-## Common Patterns
-
-### Setting Metadata on Creation
-```python
-df = pl.DataFrame({"a": [1, 2, 3]})
-df.config_meta.set(
-    source="user_upload",
-    timestamp="2025-01-15",
-    validated=False
-)
-```
-
-### Chaining Operations
-```python
-result = (
-    df.with_columns(normalized=pl.col("value") / pl.col("value").sum())
-      .filter(pl.col("normalized") > 0.1)
-      .sort("normalized", descending=True)
-)
-# Metadata flows through the entire chain
-```
-
-### Merging Metadata from Multiple Sources
-```python
-df1.config_meta.set(source="api", quality="high")
-df2.config_meta.set(source="cache", timestamp="2025-01-15")
-
-df3 = pl.concat([df1, df2])
-df3.config_meta.merge(df1, df2)
-# df3 now has: {'source': 'cache', 'quality': 'high', 'timestamp': '2025-01-15'}
-# Note: Later objects' values override earlier ones
-```
-
-### Cross-Type Workflows
-```python
-# Extract column, process, convert back
-df = pl.DataFrame({"values": [3, 1, 4, 1, 5]})
-df.config_meta.set(experiment="trial_1")
-
-s = df.get_column("values").sort().head(3)
-result = s.to_frame()
-print(result.config_meta.get_metadata())
-# -> {'experiment': 'trial_1'}
-```
-
-### Persistent Storage with Parquet
-```python
-# Save with metadata
-df.config_meta.set(lineage="raw_data", version=1)
-df.config_meta.write_parquet("data_v1.parquet")
-
-# Load with metadata
-df_loaded = read_parquet_with_meta("data_v1.parquet")
-print(df_loaded.config_meta.get_metadata())
-# -> {'lineage': 'raw_data', 'version': 1}
+lf.config_meta.collect()
 ```
 
 ## How It Works
 
-### Automatic Patching
+**Patching**: On first `.config_meta` access, the plugin inspects return type annotations and patches methods that return `DataFrame`, `LazyFrame`, or `Series`. Patched methods copy metadata from source to result.
 
-When you first access `.config_meta` on any DataFrame, LazyFrame, or Series, the plugin automatically patches methods that return any tracked type (DataFrame, LazyFrame, or Series). It determines which methods to patch by inspecting their return type annotations at runtime.
+**Storage**: Metadata lives in a global dict keyed by `id(obj)`. A weak reference to each object triggers automatic cleanup on garbage collection.
 
-Patched methods include common Polars operations like `with_columns`, `select`, `filter`, `get_column`, `to_frame`, and so on.
+**Interception**: When you call `obj.config_meta.some_method(...)`:
 
-All patched methods automatically copy metadata from the source object to the result, even across type boundaries (e.g., `DataFrame.get_column` returns a `Series` with the DataFrame's metadata).
-
-### Storage and Garbage Collection
-
-Internally, the plugin stores metadata in a global dictionary, `_df_id_to_meta`, keyed by `id(obj)`,
-and also keeps a `weakref` to each object. As soon as an object is out of scope and
-garbage-collected, the entry in `_df_id_to_meta` is automatically removed. This prevents memory
-leaks and keeps the plugin usage simple.
-
-### Method Interception
-
-When you call `df.config_meta.some_method(...)`:
-
-1. The plugin checks if `some_method` exists on the plugin itself (like `set`, `get_metadata`, `write_parquet`)
-2. If not, it forwards the call to the underlying object's method
-3. If the result is a new DataFrame/LazyFrame/Series, it automatically copies the metadata
+1. If `some_method` is a plugin method (`set`, `get_metadata`, etc.), it runs directly
+2. Otherwise, it forwards to the underlying Polars method and copies metadata to any returned DataFrame/LazyFrame/Series
 
 ## Caveats
 
-- **Python-Layer Only**
-  This is purely at the Python layer. Polars doesn't guarantee stable IDs or official hooks for such metadata.
-
-- **Metadata is Ephemeral (Unless Saved)**
-  Metadata is stored in memory and tied to object IDs. It won't survive serialization unless you explicitly use `df.config_meta.write_parquet()` and `read_parquet_with_meta()`.
-
-- **Other Formats Not Supported**
-  Currently, only Parquet format supports automatic metadata embedding/extraction. For CSV, Arrow, IPC, etc., you'd need to implement your own serialization logic.
-
-- **Configuration is Global**
-  The `ConfigMetaOpts` settings apply globally to all DataFrames, LazyFrames, and Series in your Python session.
-
-- **Module-Level Functions Not Patched**
-  Functions like `pl.concat()` are not methods, so they aren't automatically patched. Use `.merge()` to combine metadata after such operations.
+- **Python-layer only**: Polars doesn't officially support metadata; this uses object IDs which aren't guaranteed stable
+- **Ephemeral unless saved**: metadata won't survive pickling or other serialization; use Parquet for persistence
+- **Parquet only**: CSV, Arrow, IPC don't support metadata embedding
+- **Global configuration**: `ConfigMetaOpts` affects all objects in the session
+- **Module functions not patched**: `pl.concat()` and similar aren't methods; use `.merge()` afterward
 
 ## Diagnostics (Developer Tools)
 
 The plugin provides a diagnostics module for inspecting method discovery and verifying that metadata patching is working correctly. These functions are intended for developers and can be run interactively or in tests. If you experience unexpected behaviour please try running these to diagnose the problem when filing a bug report.
+
+See the [discovery tests](https://github.com/lmmx/polars-config-meta/blob/master/tests/discovery_test.py) for examples.
 
 ### Available Functions
 
