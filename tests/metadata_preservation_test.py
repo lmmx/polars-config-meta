@@ -80,3 +80,76 @@ def test_re_enable_auto_preserve():
     assert df4.config_meta.get_metadata() == {
         "source": "test2",
     }, "Should copy metadata after re-enabling"
+
+
+def test_dataframe_to_series_propagation():
+    """Test that metadata propagates from DataFrame to Series via get_column."""
+    df = pl.DataFrame({"foo": [1, 2, 3], "bar": [4, 5, 6]})
+    df.config_meta.set(owner="Alice", version=1)
+
+    s = df.get_column("foo")
+
+    md = s.config_meta.get_metadata()
+    assert md == {
+        "owner": "Alice",
+        "version": 1,
+    }, "Metadata not propagated from DataFrame to Series via get_column"
+
+
+def test_series_to_dataframe_propagation():
+    """Test that metadata propagates from Series to DataFrame via to_frame."""
+    s = pl.Series("foo", [1, 2, 3])
+    s.config_meta.set(owner="Bob", stage="prod")
+
+    df = s.to_frame()
+
+    md = df.config_meta.get_metadata()
+    assert md == {
+        "owner": "Bob",
+        "stage": "prod",
+    }, "Metadata not propagated from Series to DataFrame via to_frame"
+
+
+def test_series_to_series_method_chaining():
+    """Test that Series methods preserve metadata through chains."""
+    s = pl.Series("vals", [3, 1, 2])
+    s.config_meta.set(source="original", confidence=0.9)
+
+    # Chain several Series operations
+    s2 = s.sort().head(2)
+
+    md = s2.config_meta.get_metadata()
+    assert md == {
+        "source": "original",
+        "confidence": 0.9,
+    }, "Metadata not preserved through Series method chain"
+
+
+def test_full_type_chain_lazyframe_to_series():
+    """Test metadata flows through LazyFrame → DataFrame → Series."""
+    lf = pl.LazyFrame({"x": [1, 2, 3], "y": [4, 5, 6]})
+    lf.config_meta.set(pipeline="etl", version=2)
+
+    # LazyFrame → DataFrame → Series
+    s = lf.collect().get_column("x")
+
+    md = s.config_meta.get_metadata()
+    assert md == {
+        "pipeline": "etl",
+        "version": 2,
+    }, "Metadata not preserved through LazyFrame → DataFrame → Series chain"
+
+
+def test_series_round_trip_through_dataframe():
+    """Test metadata survives Series → DataFrame → Series conversion."""
+    s1 = pl.Series("val", [10, 20, 30])
+    s1.config_meta.set(origin="series", processed=True)
+
+    # Series → DataFrame → Series
+    s2 = s1.to_frame().get_column("val")
+
+    md = s2.config_meta.get_metadata()
+    assert md == {
+        "origin": "series",
+        "processed": True,
+    }, "Metadata not preserved through Series → DataFrame → Series round-trip"
