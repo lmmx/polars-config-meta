@@ -8,7 +8,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-04-12T17:57:54.998800888Z"
+exclude-newer = "2026-04-12T18:01:12.30711793Z"
 exclude-newer-span = "P3D"
 
 [[package]]
@@ -316,7 +316,7 @@ pandas = [
 
 [[package]]
 name = "polars-config-meta"
-version = "0.3.2"
+version = "0.3.3"
 source = { editable = "." }
 
 [package.optional-dependencies]
