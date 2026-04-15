@@ -10,13 +10,14 @@
 - Optionally embedding metadata in **Parquet file-level metadata** via `write_parquet` / `read_parquet_with_meta`
 
 ## Installation
+
 ```bash
 pip install polars-config-meta[polars]
 ```
 
-On older CPUs add the `polars-lts-cpu` extra:
+On older CPUs add the `lts-cpu` extra:
 ```bash
-pip install polars-config-meta[polars-lts-cpu]
+pip install polars-config-meta[lts-cpu]
 ```
 
 For parquet file-level metadata read/writing, add the `pyarrow` extra:
