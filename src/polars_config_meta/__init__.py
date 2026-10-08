@@ -5,6 +5,7 @@ allowing users to attach, preserve, and transfer metadata across various DataFra
 operations.
 """
 
+import functools
 import json
 import weakref
 from typing import Literal, overload
@@ -145,26 +146,34 @@ class ConfigMetaPlugin:
         """
         self._df = obj
         self._df_id = id(obj)
-        # If new to us, register a weakref so we can remove it on GC
-        if self._df_id not in self._df_id_to_meta:
+        # Register on first use. An existing entry only belongs to this object if
+        # its weakref still points here: ids are reused once an object is freed, so
+        # an entry left behind by a dead object must not leak into a new one.
+        ref = self._df_id_to_ref.get(self._df_id)
+        if ref is None or ref() is not obj:
             self._df_id_to_meta[self._df_id] = {}
-            self._df_id_to_ref[self._df_id] = weakref.ref(obj, self._cleanup)
+            self._df_id_to_ref[self._df_id] = weakref.ref(
+                obj,
+                functools.partial(ConfigMetaPlugin._cleanup, self._df_id),
+            )
 
         # Ensure methods are patched when plugin is first used (if enabled)
         if ConfigMetaOpts.auto_preserve_metadata:
             _ensure_patched()
 
     @classmethod
-    def _cleanup(cls, obj_weakref):
-        """When the object is GC'd, remove references in the global dicts."""
-        to_remove = None
-        for obj_id, wref in cls._df_id_to_ref.items():
-            if wref is obj_weakref:
-                to_remove = obj_id
-                break
-        if to_remove is not None:
-            cls._df_id_to_ref.pop(to_remove, None)
-            cls._df_id_to_meta.pop(to_remove, None)
+    def _cleanup(cls, obj_id, obj_weakref):
+        """When the object is GC'd, remove its entries from the global dicts.
+
+        The id is bound into the callback, so this never iterates the registry:
+        iterating raised "dictionary changed size during iteration" whenever
+        another thread or a nested GC callback changed the dicts mid-loop, and the
+        entry was then never removed.
+        """
+        # Only remove the entry if it still belongs to the collected object.
+        if cls._df_id_to_ref.get(obj_id) is obj_weakref:
+            cls._df_id_to_ref.pop(obj_id, None)
+            cls._df_id_to_meta.pop(obj_id, None)
 
     def set(self, **kwargs) -> None:
         """Set metadata for the object.
