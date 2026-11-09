@@ -38,8 +38,8 @@ pip install polars-config-meta[pyarrow]
 2. **Cross-Type Flow**
    Metadata flows across DataFrame, LazyFrame, and Series boundaries:
 ```python
-   s = df.get_column("a")   # Series inherits from DataFrame
-   df2 = s.to_frame()       # DataFrame inherits from Series
+s = df.get_column("a")  # Series inherits from DataFrame
+df2 = s.to_frame()  # DataFrame inherits from Series
 ```
 
 3. **Weak-Reference Based**
@@ -67,8 +67,8 @@ df.config_meta.set(owner="Alice", confidence=0.95)
 # Metadata preserved through transformations:
 df2 = (
     df.with_columns(squared=pl.col("a") ** 2)
-      .filter(pl.col("squared") > 4)
-      .select(["a", "squared"])
+    .filter(pl.col("squared") > 4)
+    .select(["a", "squared"])
 )
 df2.config_meta.get_metadata()
 # {'owner': 'Alice', 'confidence': 0.95}
@@ -82,6 +82,7 @@ s.config_meta.get_metadata()
 df.config_meta.write_parquet("output.parquet")
 
 from polars_config_meta import read_parquet_with_meta
+
 df_loaded = read_parquet_with_meta("output.parquet")
 df_loaded.config_meta.get_metadata()
 # {'owner': 'Alice', 'confidence': 0.95}
